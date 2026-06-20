@@ -72,11 +72,40 @@ def simplify(feats):
     return out
 
 
+def clip_to_va(feats):
+    """Clip each line to Virginia's actual boundary (union of county polys) so the overlay
+    is STATE-LEVEL only — the bbox fetch otherwise pulls neighboring-state lines."""
+    from shapely.geometry import shape, mapping, GeometryCollection
+    from shapely.ops import unary_union
+    vg = json.load(open(DATA / "va_geo.geojson"))
+    va = unary_union([shape(f["geometry"]) for f in vg["features"]]).buffer(0)
+    out = []
+    for f in feats:
+        try:
+            clipped = shape(f["geometry"]).intersection(va)
+            if clipped.is_empty:
+                continue
+            if clipped.geom_type == "GeometryCollection":
+                lines = [g for g in clipped.geoms if g.geom_type in ("LineString", "MultiLineString")]
+                if not lines:
+                    continue
+                clipped = unary_union(lines)
+            if clipped.geom_type not in ("LineString", "MultiLineString"):
+                continue
+            f["geometry"] = mapping(clipped)
+            out.append(f)
+        except Exception:
+            continue
+    return out
+
+
 def main():
     ep, fields = find_endpoint()
     if not ep:
         print("NO WORKING ENDPOINT"); return
-    feats = simplify(fetch(ep, fields))
+    raw = fetch(ep, fields)
+    feats = simplify(clip_to_va(raw))
+    print(f"clipped to VA: {len(raw)} fetched -> {len(feats)} in-state")
     path = DATA / "va_transmission.geojson"
     json.dump({"type": "FeatureCollection", "features": feats}, open(path, "w"), separators=(",", ":"))
     cls = {}
