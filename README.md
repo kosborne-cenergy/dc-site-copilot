@@ -27,6 +27,7 @@ app/
   counties.json       target counties
   get_geo.py          VA county geometry (census geojson)
   get_transmission.py HIFLD transmission lines (energy layer)
+  get_fiber.py        FIBER layer: scrape data.virginia.gov + compile hubs/routes/dark-fiber (see FIBER.md)
   pipeline.py         gather (Gemini) -> classify (Gemma) -> contagion (Claude)
   build_site.py       renders self-contained map + dashboard (Leaflet)
   data/  (gitignored) generated geojson + records
@@ -47,12 +48,14 @@ cd app
 python get_geo.py
 python pipeline.py          # gather -> classify -> contagion
 python get_transmission.py  # energy layer
+python get_fiber.py         # fiber layer (scrape + hubs/routes/dark-fiber, statewide)
 python build_site.py        # -> dist/index.html
 python -m http.server 8777 --directory dist   # open http://127.0.0.1:8777
 ```
 
 ## Status (start of hackathon)
 - ✅ Macro county radar (94/95) + dashboard + transmission overlay
+- ✅ Fiber layer (statewide): scraped fiber buildout + hubs/routes/dark-fiber + per-county fiber score (see [FIBER.md](app/FIBER.md))
 - ⬜ Parcel selection + exhibit pipeline (NWI/FEMA/USGS/tree) — **the build**
 - ⬜ 4-dimension + sentiment scorecard
 - ⬜ Web app integration (county ↔ parcel)

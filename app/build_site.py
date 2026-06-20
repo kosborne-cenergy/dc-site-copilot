@@ -13,6 +13,10 @@ try:
     contagion = json.load(open(DATA / "contagion.json", encoding="utf-8"))
 except FileNotFoundError:
     contagion = {}
+try:
+    fiber = {r["fips"]: r for r in json.load(open(DATA / "va_fiber_scores.json", encoding="utf-8"))}
+except FileNotFoundError:
+    fiber = {}
 
 # public sentiment from YouTube (optional — merge by fips if present)
 try:
@@ -133,7 +137,8 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
      <span class="mode" data-mode="trajectory" onclick="setMode('trajectory')">Trajectory</span>
      <span class="mode" data-mode="score" onclick="setMode('score')">Buildability</span>
      <span class="mode" data-mode="sentiment" onclick="setMode('sentiment')">😡 Public sentiment</span>
-     <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span></div>
+     <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span>
+     <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span></div>
    <div class="legend" id="legend"></div>
    <div id="trend"></div>
    <div id="detail"><p class="hint">Click a county to see its data-center stance, trajectory, and the policy action behind it.</p></div>
@@ -150,14 +155,14 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
    <div class="tile"><div class="num" style="color:var(--res)">__CLOSING__</div><div class="lbl">⏳ Window closing</div></div>
    <div class="tile"><div class="num">__N__</div><div class="lbl">Counties scored</div></div>
   </div>
-  <p class="muted" style="margin:-6px 0 12px">Developer view — ranked by <b>permitting buildability</b> (stance + zoning path + policy trajectory). Grid / fiber / land / water are the next data layer. AI-generated; verify against the source ordinance.</p>
+  <p class="muted" style="margin:-6px 0 12px">Developer view — ranked by <b>permitting buildability</b> (stance + zoning path + policy trajectory). Toggle ⚡ Transmission + 🔌 Fiber overlays on the map; click any locality for its fiber score + public sentiment. AI-generated; verify against the source ordinance.</p>
   <table id="rank"><thead><tr><th>#</th><th>County</th><th>Buildability</th><th>Tier</th><th>Stance</th><th>Path</th><th>Trajectory</th><th>Public mood</th><th>Why / flag</th></tr></thead><tbody id="rankbody"></tbody></table>
  </div>
 </div>
 <footer id="foot"></footer>
 
 <script>
-const GEO=__GEO__, REC=__REC__, CON=__CON__, BUILT="__BUILT__";
+const GEO=__GEO__, REC=__REC__, CON=__CON__, FIB=__FIB__, BUILT="__BUILT__";
 const byFips={}; REC.forEach(r=>byFips[r.fips]=r);
 const STANCE={positive:'#2e7d32',neutral:'#9e9e9e',restrictive:'#ef6c00',moratorium:'#c62828'};
 const TRAJ={loosening:'#2e7d32',stable:'#cfd6df',tightening:'#c62828'};
@@ -199,9 +204,35 @@ function toggleTx(){const b=document.getElementById('txbtn');
   fetch('./va_transmission.geojson').then(r=>r.json()).then(d=>{
     txLayer=L.geoJSON(d,{style:txStyle}).addTo(map);b.textContent=`⚡ Transmission (${d.features.length})`;
   }).catch(e=>{b.textContent='⚡ needs localhost';b.classList.remove('on');});}
+// fiber overlay (hubs + long-haul corridors) — public-source, compiled + scraped
+let fibLayer=null;
+const CTYPE={strategic:{color:'#0aa',weight:3.4,dash:null},dark:{color:'#2e7d32',weight:3,dash:'7 6'},backbone:{color:'#1f6feb',weight:2,dash:null}};
+function toggleFiber(){const b=document.getElementById('fibtn');
+  if(fibLayer){map.removeLayer(fibLayer);fibLayer=null;b.classList.remove('on');b.textContent='🔌 Fiber';return;}
+  b.classList.add('on');b.textContent='🔌 loading…';
+  fetch('./va_fiber.geojson').then(r=>r.json()).then(d=>{
+    fibLayer=L.geoJSON(d,{
+      style:f=>{const s=CTYPE[f.properties.ctype]||CTYPE.backbone;return {color:s.color,weight:s.weight,opacity:.85,dashArray:s.dash};},
+      pointToLayer:(f,ll)=>{const t=f.properties.tier;const r=t===1?8:t===2?6:5;
+        return L.circleMarker(ll,{radius:r,fillColor:t===1?'#c62828':t===2?'#ef6c00':'#8e44ad',color:'#fff',weight:1.5,fillOpacity:.95});},
+      onEachFeature:(f,l)=>{const p=f.properties;
+        l.bindPopup(p.kind==='hub'
+          ?`<b>${p.name}</b><br><i>${p.type} · tier ${p.tier} hub</i><br>${p.why}`
+          :`<b>${p.name}</b><br><i>${p.ctype} corridor</i><br>Carriers: ${p.owners}<br>${p.why}`);}
+    }).addTo(map);
+    b.textContent=`🔌 Fiber (${d.features.length})`;
+  }).catch(e=>{b.textContent='🔌 needs localhost';b.classList.remove('on');});}
 function arrow(t){return t==='tightening'?'<b style="color:var(--mor)">▲ tightening</b>':t==='loosening'?'<b style="color:var(--pos)">▼ loosening</b>':'<b style="color:#888">▬ stable</b>';}
+function fiberBlock(fips){const f=FIB[fips];if(!f)return '';
+  const c=f.fiber_score>=70?'#2e7d32':f.fiber_score>=50?'#1f6feb':f.fiber_score>=30?'#ef6c00':'#c62828';
+  const act=f.dark_fiber_action==='lease'?'<b style="color:var(--pos)">lease now</b>':'<b style="color:var(--res)">build/extend</b>';
+  return `<div class="card"><div class="t">🔌 Fiber — <span style="color:${c}">${f.fiber_score}/100</span> · ${f.fiber_tier}</div>
+   <div class="kv"><b>Dark fiber:</b> ${f.dark_fiber} (${f.dark_fiber_region}) — ${act}</div>
+   <div class="kv"><b>Nearest hub:</b> ${f.nearest_hub} (${f.nearest_hub_km} km)</div>
+   ${f.on_corridor?`<div class="kv"><b>On corridor:</b> ${f.on_corridor}</div>`:''}
+   ${f.fiber_premises_funded!=null?`<div class="muted">${f.fiber_premises_funded} fiber-to-premises locations funded (scraped, data.virginia.gov)</div>`:''}</div>`;}
 function showDetail(fips){const r=byFips[fips],d=document.getElementById('detail');
-  if(!r){d.innerHTML='<p class="hint">No classified data for this locality.</p>';return;}
+  if(!r){d.innerHTML='<p class="hint">No classified data for this locality.</p>'+fiberBlock(fips);return;}
   d.innerHTML=`<p class="county-name">${r.name} County</p>
    <span class="tag" style="background:${STANCE[r.stance]}">${SLABEL[r.stance]||r.stance}</span> ${arrow(r.trajectory)}
    <div class="kv" style="margin-top:8px"><b>Buildability:</b> <span class="score" style="color:${scoreColor(r.score)}">${r.score}/100</span> — ${r.tier}</div>
@@ -213,7 +244,7 @@ function showDetail(fips){const r=byFips[fips],d=document.getElementById('detail
    ${r.pub_sentiment?`<div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px">
      <div class="kv"><b>😡 Public sentiment (YouTube):</b> <b style="color:${SENT[r.pub_sentiment]||'#888'}">${SENTLBL[r.pub_sentiment]||r.pub_sentiment}</b>${r.pub_intensity?` · intensity ${r.pub_intensity}`:''}</div>
      <div class="kv"><b>Top concerns:</b> ${(r.pub_concerns||[]).join(', ')||'—'}</div>
-     <div class="muted">${r.pub_summary||''} (${r.pub_nvideos||0} videos)</div></div>`:''}`;}
+     <div class="muted">${r.pub_summary||''} (${r.pub_nvideos||0} videos)</div></div>`:''}`+fiberBlock(fips);}
 function legend(){document.getElementById('legend').innerHTML = mode==='stance'
    ? Object.keys(STANCE).map(k=>`<span><i style="background:${STANCE[k]}"></i>${SLABEL[k]}</span>`).join('')
    : mode==='trajectory' ? Object.keys(TRAJ).map(k=>`<span><i style="background:${TRAJ[k]}"></i>${k}</span>`).join('')
@@ -245,6 +276,7 @@ out = (HTML
        .replace("__GEO__", json.dumps(geo, separators=(",", ":")))
        .replace("__REC__", json.dumps(records, separators=(",", ":")))
        .replace("__CON__", json.dumps(contagion, separators=(",", ":")))
+       .replace("__FIB__", json.dumps(fiber, separators=(",", ":")))
        .replace("__BUILT__", built).replace("__N__", str(n))
        .replace("__T1__", str(t1)).replace("__AVOID__", str(avoid)).replace("__CLOSING__", str(closing)))
 (DIST / "index.html").write_text(out, encoding="utf-8")
@@ -253,5 +285,9 @@ tx = DATA / "va_transmission.geojson"
 if tx.exists():
     shutil.copy(tx, DIST / "va_transmission.geojson")
     print(f"copied transmission overlay ({tx.stat().st_size//1024} KB)")
+fib = DATA / "va_fiber.geojson"
+if fib.exists():
+    shutil.copy(fib, DIST / "va_fiber.geojson")
+    print(f"copied fiber overlay ({fib.stat().st_size//1024} KB)")
 print(f"wrote dist/index.html ({len(out)//1024} KB) | {n} counties | Tier1={t1} Avoid={avoid} closing={closing}")
 print("top 8:", ", ".join(f"{r['name']}({r['score']})" for r in records[:8]))
