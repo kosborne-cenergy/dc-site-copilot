@@ -153,7 +153,8 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
      <span class="mode" data-mode="water" onclick="setMode('water')">💧 Water</span>
      <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span>
      <span class="mode" id="subbtn" onclick="toggleSub()">🔋 Substations</span>
-     <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span></div>
+     <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span>
+     <span class="mode" id="stopbtn" onclick="toggleStopped()">⛔ Stopped/paused</span></div>
    <div class="legend" id="legend"></div>
    <div id="trend"></div>
    <div id="detail"><p class="hint">Click a county to see its data-center stance, trajectory, and the policy action behind it.</p></div>
@@ -234,6 +235,20 @@ function toggleSub(){const b=document.getElementById('subbtn');
     }).addTo(map);
     b.textContent=`🔋 Substations (${d.features.length})`;
   }).catch(e=>{b.textContent='🔋 needs localhost';b.classList.remove('on');});}
+
+// stopped / paused data-center projects overlay (curated, source-cited)
+let stopLayer=null;
+const STOPC={rejected:'#c62828',paused:'#ef6c00',moratorium:'#7b1fa2',withdrawn:'#9e9e9e'};
+function toggleStopped(){const b=document.getElementById('stopbtn');
+  if(stopLayer){map.removeLayer(stopLayer);stopLayer=null;b.classList.remove('on');b.textContent='⛔ Stopped/paused';return;}
+  b.classList.add('on');b.textContent='⛔ loading…';
+  fetch('./va_stopped_dc.geojson').then(r=>r.json()).then(d=>{
+    stopLayer=L.geoJSON(d,{
+      pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:7,fillColor:STOPC[f.properties.status]||'#c62828',color:'#fff',weight:2,fillOpacity:.92}),
+      onEachFeature:(f,l)=>{const p=f.properties;l.bindPopup(`<b>${p.name}</b><br>${p.locality} · <b style="color:${STOPC[p.status]||'#c62828'}">${p.status}</b>${p.year?` (${p.year})`:''}<br>${p.reason||''}<br><span style="color:#7a899c;font-size:11px">Source: ${p.source||'—'}${p.verified?'':' · unverified demo data'}</span>`);}
+    }).addTo(map);
+    b.textContent=`⛔ Stopped/paused (${d.features.length})`;
+  }).catch(e=>{b.textContent='⛔ needs localhost';b.classList.remove('on');});}
 // fiber overlay (hubs + long-haul corridors) — public-source, compiled + scraped
 let fibLayer=null;
 const CTYPE={strategic:{color:'#0aa',weight:3.4,dash:null},dark:{color:'#2e7d32',weight:3,dash:'7 6'},backbone:{color:'#1f6feb',weight:2,dash:null}};
@@ -326,5 +341,18 @@ fib = DATA / "va_fiber.geojson"
 if fib.exists():
     shutil.copy(fib, DIST / "va_fiber.geojson")
     print(f"copied fiber overlay ({fib.stat().st_size//1024} KB)")
+
+# stopped / paused projects: curated source JSON -> point geojson overlay
+stop_src = ROOT / "stopped_dc.json"
+if stop_src.exists():
+    projects = json.load(open(stop_src, encoding="utf-8")).get("projects", [])
+    feats = [{"type": "Feature",
+              "geometry": {"type": "Point", "coordinates": [p["lon"], p["lat"]]},
+              "properties": {k: p.get(k) for k in
+                             ("name", "locality", "fips", "status", "year", "reason", "source", "verified")}}
+             for p in projects if p.get("lat") is not None and p.get("lon") is not None]
+    json.dump({"type": "FeatureCollection", "features": feats},
+              open(DIST / "va_stopped_dc.geojson", "w"), separators=(",", ":"))
+    print(f"wrote stopped/paused overlay ({len(feats)} projects)")
 print(f"wrote dist/index.html ({len(out)//1024} KB) | {n} counties | Tier1={t1} Avoid={avoid} closing={closing}")
 print("top 8:", ", ".join(f"{r['name']}({r['score']})" for r in records[:8]))
