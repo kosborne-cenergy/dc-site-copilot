@@ -18,6 +18,20 @@ try:
 except FileNotFoundError:
     fiber = {}
 
+# public sentiment from YouTube (optional — merge by fips if present)
+try:
+    _sent = {s["fips"]: s for s in json.load(open(DATA / "sentiment.json", encoding="utf-8"))}
+except FileNotFoundError:
+    _sent = {}
+for r in records:
+    s = _sent.get(r["fips"])
+    if s:
+        r["pub_sentiment"] = s.get("public_sentiment")
+        r["pub_intensity"] = s.get("intensity")
+        r["pub_concerns"] = s.get("top_concerns", [])
+        r["pub_summary"] = s.get("summary", "")
+        r["pub_nvideos"] = s.get("n_videos", 0)
+
 # ---------- transparent buildability score (permitting dimension) ----------
 STANCE_BASE = {"positive": 50, "neutral": 35, "restrictive": 15, "moratorium": 0}
 PATH_ADJ = {"by-right": 25, "special-use": 10, "unclear": 5, "prohibited": -25}
@@ -122,6 +136,7 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
    <div class="modes"><span class="mode on" data-mode="stance" onclick="setMode('stance')">Stance</span>
      <span class="mode" data-mode="trajectory" onclick="setMode('trajectory')">Trajectory</span>
      <span class="mode" data-mode="score" onclick="setMode('score')">Buildability</span>
+     <span class="mode" data-mode="sentiment" onclick="setMode('sentiment')">😡 Public sentiment</span>
      <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span>
      <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span></div>
    <div class="legend" id="legend"></div>
@@ -140,8 +155,8 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
    <div class="tile"><div class="num" style="color:var(--res)">__CLOSING__</div><div class="lbl">⏳ Window closing</div></div>
    <div class="tile"><div class="num">__N__</div><div class="lbl">Counties scored</div></div>
   </div>
-  <p class="muted" style="margin:-6px 0 12px">Developer view — ranked by <b>permitting buildability</b> (stance + zoning path + policy trajectory). Toggle ⚡ Transmission + 🔌 Fiber overlays on the map; click any locality for its fiber score. AI-generated; verify against the source ordinance.</p>
-  <table id="rank"><thead><tr><th>#</th><th>County</th><th>Buildability</th><th>Tier</th><th>Stance</th><th>Path</th><th>Trajectory</th><th>Why / flag</th></tr></thead><tbody id="rankbody"></tbody></table>
+  <p class="muted" style="margin:-6px 0 12px">Developer view — ranked by <b>permitting buildability</b> (stance + zoning path + policy trajectory). Toggle ⚡ Transmission + 🔌 Fiber overlays on the map; click any locality for its fiber score + public sentiment. AI-generated; verify against the source ordinance.</p>
+  <table id="rank"><thead><tr><th>#</th><th>County</th><th>Buildability</th><th>Tier</th><th>Stance</th><th>Path</th><th>Trajectory</th><th>Public mood</th><th>Why / flag</th></tr></thead><tbody id="rankbody"></tbody></table>
  </div>
 </div>
 <footer id="foot"></footer>
@@ -151,6 +166,8 @@ const GEO=__GEO__, REC=__REC__, CON=__CON__, FIB=__FIB__, BUILT="__BUILT__";
 const byFips={}; REC.forEach(r=>byFips[r.fips]=r);
 const STANCE={positive:'#2e7d32',neutral:'#9e9e9e',restrictive:'#ef6c00',moratorium:'#c62828'};
 const TRAJ={loosening:'#2e7d32',stable:'#cfd6df',tightening:'#c62828'};
+const SENT={strongly_oppose:'#7f0000',oppose:'#e53935',mixed:'#fb8c00',support:'#2e7d32',neutral:'#bdbdbd',none:'#eeeeee',unclear:'#dddddd'};
+const SENTLBL={strongly_oppose:'Strongly oppose',oppose:'Oppose',mixed:'Mixed',support:'Support',neutral:'Neutral',none:'No signal',unclear:'Unclear'};
 const SLABEL={positive:'Positive',neutral:'Neutral',restrictive:'Restrictive',moratorium:'Moratorium'};
 const TIERC={'Tier 1 — Build now':'#2e7d32','Tier 2 — Workable':'#1f6feb','Tier 3 — Hard':'#ef6c00','Avoid':'#c62828'};
 function scoreColor(s){return s>=72?'#2e7d32':s>=52?'#1f6feb':s>=32?'#ef6c00':'#c62828';}
@@ -167,6 +184,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{ma
 function colorFor(fips){const r=byFips[fips]; if(!r) return '#e8e8e8';
   if(mode==='stance') return STANCE[r.stance]||'#e8e8e8';
   if(mode==='trajectory') return TRAJ[r.trajectory]||'#cfd6df';
+  if(mode==='sentiment') return SENT[r.pub_sentiment]||'#e8e8e8';
   return scoreColor(r.score);}
 function style(f){const fips=f.properties._fips,has=byFips[fips];
   return {fillColor:colorFor(fips),weight:has?1:.5,color:has?'#fff':'#ccc',fillOpacity:has?.85:.25};}
@@ -222,10 +240,15 @@ function showDetail(fips){const r=byFips[fips],d=document.getElementById('detail
    <div class="kv"><b>Key limits:</b> ${r.key_limits||'—'}</div>
    <div class="kv"><b>Recent action:</b> ${r.recent_action||'—'} ${r.recent_action_year?('('+r.recent_action_year+')'):''}</div>
    <div class="kv" style="margin-top:6px">${r.summary||''}</div>
-   <div class="muted" style="margin-top:6px">model confidence: ${r.confidence!=null?r.confidence:'—'}</div>`+fiberBlock(fips);}
+   <div class="muted" style="margin-top:6px">model confidence: ${r.confidence!=null?r.confidence:'—'}</div>
+   ${r.pub_sentiment?`<div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px">
+     <div class="kv"><b>😡 Public sentiment (YouTube):</b> <b style="color:${SENT[r.pub_sentiment]||'#888'}">${SENTLBL[r.pub_sentiment]||r.pub_sentiment}</b>${r.pub_intensity?` · intensity ${r.pub_intensity}`:''}</div>
+     <div class="kv"><b>Top concerns:</b> ${(r.pub_concerns||[]).join(', ')||'—'}</div>
+     <div class="muted">${r.pub_summary||''} (${r.pub_nvideos||0} videos)</div></div>`:''}`+fiberBlock(fips);}
 function legend(){document.getElementById('legend').innerHTML = mode==='stance'
    ? Object.keys(STANCE).map(k=>`<span><i style="background:${STANCE[k]}"></i>${SLABEL[k]}</span>`).join('')
    : mode==='trajectory' ? Object.keys(TRAJ).map(k=>`<span><i style="background:${TRAJ[k]}"></i>${k}</span>`).join('')
+   : mode==='sentiment' ? ['strongly_oppose','oppose','mixed','support','neutral','none'].map(k=>`<span><i style="background:${SENT[k]}"></i>${SENTLBL[k]}</span>`).join('')
    : '<span><i style="background:#2e7d32"></i>72+</span><span><i style="background:#1f6feb"></i>52-71</span><span><i style="background:#ef6c00"></i>32-51</span><span><i style="background:#c62828"></i>&lt;32</span>';}
 function trend(){document.getElementById('trend').innerHTML = CON.statewide_trend?`<h2>Statewide trend</h2><div class="card">${CON.statewide_trend}</div>`:'';}
 function contagionPanel(){const el=document.getElementById('contagion');let h='';const w=CON.siting_windows;
@@ -242,6 +265,7 @@ function dash(){const tb=document.getElementById('rankbody');
     <td><span class="tierp" style="background:${TIERC[r.tier]};color:#fff">${r.tier.replace('Tier ','T').replace(' — ',' ')}</span></td>
     <td><span class="tag" style="background:${STANCE[r.stance]}">${SLABEL[r.stance]||r.stance}</span></td>
     <td>${r.zoning_path||'—'}</td><td>${arrow(r.trajectory)}</td>
+    <td>${r.pub_sentiment&&r.pub_sentiment!=='none'?`<span class="tag" style="background:${SENT[r.pub_sentiment]}">${SENTLBL[r.pub_sentiment]}</span>${r.pub_intensity>=0.6?' 🔥':''}`:'<span class="muted">—</span>'}</td>
     <td>${r.why||''} ${r.window==='closing'?'<span class="flag">⏳ window closing</span>':r.window==='open'?'<span class="flag" style="color:var(--pos)">✓ wide open</span>':''}</td></tr>`).join('');}
 
 legend();trend();contagionPanel();dash();
