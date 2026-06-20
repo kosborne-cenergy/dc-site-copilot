@@ -123,6 +123,7 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
      <span class="mode" data-mode="trajectory" onclick="setMode('trajectory')">Trajectory</span>
      <span class="mode" data-mode="score" onclick="setMode('score')">Buildability</span>
      <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span>
+     <span class="mode" id="subbtn" onclick="toggleSub()">🔋 Substations</span>
      <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span></div>
    <div class="legend" id="legend"></div>
    <div id="trend"></div>
@@ -186,6 +187,19 @@ function toggleTx(){const b=document.getElementById('txbtn');
   fetch('./va_transmission.geojson').then(r=>r.json()).then(d=>{
     txLayer=L.geoJSON(d,{style:txStyle}).addTo(map);b.textContent=`⚡ Transmission (${d.features.length})`;
   }).catch(e=>{b.textContent='⚡ needs localhost';b.classList.remove('on');});}
+
+// substations overlay
+let subLayer=null;
+function toggleSub(){const b=document.getElementById('subbtn');
+  if(subLayer){map.removeLayer(subLayer);subLayer=null;b.classList.remove('on');b.textContent='🔋 Substations';return;}
+  b.classList.add('on');b.textContent='🔋 loading…';
+  fetch('./va_substations.geojson').then(r=>r.json()).then(d=>{
+    subLayer=L.geoJSON(d,{
+      pointToLayer: (f,ll)=>L.circleMarker(ll,{radius:5,fillColor:'#ef6c00',color:'#fff',weight:1,fillOpacity:.9}),
+      onEachFeature: (f,l)=>l.bindPopup(`<b>${f.properties.name}</b><br>Voltage: ${f.properties.voltage||'Unknown'}<br>Operator: ${f.properties.operator||'Unknown'}`)
+    }).addTo(map);
+    b.textContent=`🔋 Substations (${d.features.length})`;
+  }).catch(e=>{b.textContent='🔋 needs localhost';b.classList.remove('on');});}
 // fiber overlay (hubs + long-haul corridors) — public-source, compiled + scraped
 let fibLayer=null;
 const CTYPE={strategic:{color:'#0aa',weight:3.4,dash:null},dark:{color:'#2e7d32',weight:3,dash:'7 6'},backbone:{color:'#1f6feb',weight:2,dash:null}};
@@ -220,6 +234,7 @@ function showDetail(fips){const r=byFips[fips],d=document.getElementById('detail
    <div class="kv" style="margin-top:8px"><b>Buildability:</b> <span class="score" style="color:${scoreColor(r.score)}">${r.score}/100</span> — ${r.tier}</div>
    <div class="kv"><b>Zoning path:</b> ${r.zoning_path||'—'}</div>
    <div class="kv"><b>Key limits:</b> ${r.key_limits||'—'}</div>
+   <div class="kv"><b>Grid capacity (SCC):</b> ${r.energy_capacity||'Unknown'}</div>
    <div class="kv"><b>Recent action:</b> ${r.recent_action||'—'} ${r.recent_action_year?('('+r.recent_action_year+')'):''}</div>
    <div class="kv" style="margin-top:6px">${r.summary||''}</div>
    <div class="muted" style="margin-top:6px">model confidence: ${r.confidence!=null?r.confidence:'—'}</div>`+fiberBlock(fips);}
@@ -261,6 +276,10 @@ tx = DATA / "va_transmission.geojson"
 if tx.exists():
     shutil.copy(tx, DIST / "va_transmission.geojson")
     print(f"copied transmission overlay ({tx.stat().st_size//1024} KB)")
+sub = DATA / "va_substations.geojson"
+if sub.exists():
+    shutil.copy(sub, DIST / "va_substations.geojson")
+    print(f"copied substations overlay ({sub.stat().st_size//1024} KB)")
 fib = DATA / "va_fiber.geojson"
 if fib.exists():
     shutil.copy(fib, DIST / "va_fiber.geojson")

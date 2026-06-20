@@ -63,14 +63,15 @@ def gemma(prompt, as_json=True):
 
 # ---------------- Stage 1: GATHER ----------------
 GATHER_PROMPT = """You are a land-use policy researcher. Using current, real sources, summarize the CURRENT
-data-center (hyperscale/colocation) ZONING posture of {county} County, Virginia.
+data-center (hyperscale/colocation) ZONING posture and GRID CAPACITY of {county} County, Virginia.
 
 Report factually, with dates and source names where possible:
 - Zoning process for a new data center: by-right, OR special-use/special-exception (SUP/SPEX/CUP), OR prohibited.
 - Any ordinance amendment, overlay, performance standards, or MORATORIUM adopted or proposed (give the date/year).
 - Key limits if any: setbacks, building height, noise (dBA at property line), acreage/size caps, water/power conditions.
 - DIRECTION of recent policy change over the last ~2 years: loosening, stable, or tightening — and why.
-Keep it under 200 words. State plainly if a county has little/no data-center-specific regulation."""
+- ENERGY / GRID CAPACITY: Search for recent SCC Dominion Energy filings (e.g., large-load interconnection queue, IRP) related to this county. Note if there is a known power constraint or massive data-center load queue here.
+Keep it under 250 words. State plainly if a county has little/no data-center-specific regulation or public grid data."""
 
 
 def _gather_one(c):
@@ -103,6 +104,7 @@ Return ONLY JSON with keys:
   zoning_path: one of "by-right","special-use","prohibited","unclear"
   trajectory: one of "loosening","stable","tightening"
   key_limits: short string of the main limits (or "none noted")
+  energy_capacity: short string summarizing Dominion SCC queue or constraints (or "unknown")
   recent_action: short string of the latest policy action (or "none noted")
   recent_action_year: 4-digit year or ""
   summary: one sentence
