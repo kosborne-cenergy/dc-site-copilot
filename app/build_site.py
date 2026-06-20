@@ -32,6 +32,19 @@ for r in records:
         r["pub_summary"] = s.get("summary", "")
         r["pub_nvideos"] = s.get("n_videos", 0)
 
+# water resources (NHD surface water -> per-county score)
+try:
+    _water = {w["fips"]: w for w in json.load(open(DATA / "va_water_scores.json", encoding="utf-8"))}
+except FileNotFoundError:
+    _water = {}
+for r in records:
+    w = _water.get(r["fips"])
+    if w:
+        r["water_score"] = w.get("water_score")
+        r["water_tier"] = w.get("water_tier")
+        r["water_sqkm"] = w.get("surface_water_sqkm")
+        r["water_big"] = w.get("largest_waterbody")
+
 # ---------- transparent buildability score (permitting dimension) ----------
 STANCE_BASE = {"positive": 50, "neutral": 35, "restrictive": 15, "moratorium": 0}
 PATH_ADJ = {"by-right": 25, "special-use": 10, "unclear": 5, "prohibited": -25}
@@ -137,6 +150,7 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
      <span class="mode" data-mode="trajectory" onclick="setMode('trajectory')">Trajectory</span>
      <span class="mode" data-mode="score" onclick="setMode('score')">Buildability</span>
      <span class="mode" data-mode="sentiment" onclick="setMode('sentiment')">😡 Public sentiment</span>
+     <span class="mode" data-mode="water" onclick="setMode('water')">💧 Water</span>
      <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span>
      <span class="mode" id="subbtn" onclick="toggleSub()">🔋 Substations</span>
      <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span></div>
@@ -172,6 +186,7 @@ const SENTLBL={strongly_oppose:'Strongly oppose',oppose:'Oppose',mixed:'Mixed',s
 const SLABEL={positive:'Positive',neutral:'Neutral',restrictive:'Restrictive',moratorium:'Moratorium'};
 const TIERC={'Tier 1 — Build now':'#2e7d32','Tier 2 — Workable':'#1f6feb','Tier 3 — Hard':'#ef6c00','Avoid':'#c62828'};
 function scoreColor(s){return s>=72?'#2e7d32':s>=52?'#1f6feb':s>=32?'#ef6c00':'#c62828';}
+function waterColor(s){return s>=100?'#084594':s>=80?'#2171b5':s>=60?'#4292c6':s>=45?'#9ecae1':s>=25?'#deebf7':'#e8e8e8';}
 let mode='stance', map, layer;
 
 function showView(v){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
@@ -186,6 +201,7 @@ function colorFor(fips){const r=byFips[fips]; if(!r) return '#e8e8e8';
   if(mode==='stance') return STANCE[r.stance]||'#e8e8e8';
   if(mode==='trajectory') return TRAJ[r.trajectory]||'#cfd6df';
   if(mode==='sentiment') return SENT[r.pub_sentiment]||'#e8e8e8';
+  if(mode==='water') return r.water_score!=null?waterColor(r.water_score):'#e8e8e8';
   return scoreColor(r.score);}
 function style(f){const fips=f.properties._fips,has=byFips[fips];
   return {fillColor:colorFor(fips),weight:has?1:.5,color:has?'#fff':'#ccc',fillOpacity:has?.85:.25};}
@@ -259,11 +275,13 @@ function showDetail(fips){const r=byFips[fips],d=document.getElementById('detail
    ${r.pub_sentiment?`<div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px">
      <div class="kv"><b>😡 Public sentiment (YouTube):</b> <b style="color:${SENT[r.pub_sentiment]||'#888'}">${SENTLBL[r.pub_sentiment]||r.pub_sentiment}</b>${r.pub_intensity?` · intensity ${r.pub_intensity}`:''}</div>
      <div class="kv"><b>Top concerns:</b> ${(r.pub_concerns||[]).join(', ')||'—'}</div>
-     <div class="muted">${r.pub_summary||''} (${r.pub_nvideos||0} videos)</div></div>`:''}`+fiberBlock(fips);}
+     <div class="muted">${r.pub_summary||''} (${r.pub_nvideos||0} videos)</div></div>`:''}
+   ${r.water_score!=null?`<div class="kv" style="margin-top:8px"><b>💧 Water:</b> <b style="color:${waterColor(r.water_score)}">${r.water_tier} (${r.water_score}/100)</b> — ${r.water_sqkm} km² surface water${r.water_big&&r.water_big!=='—'?'; largest: '+r.water_big:''}</div>`:''}`+fiberBlock(fips);}
 function legend(){document.getElementById('legend').innerHTML = mode==='stance'
    ? Object.keys(STANCE).map(k=>`<span><i style="background:${STANCE[k]}"></i>${SLABEL[k]}</span>`).join('')
    : mode==='trajectory' ? Object.keys(TRAJ).map(k=>`<span><i style="background:${TRAJ[k]}"></i>${k}</span>`).join('')
    : mode==='sentiment' ? ['strongly_oppose','oppose','mixed','support','neutral','none'].map(k=>`<span><i style="background:${SENT[k]}"></i>${SENTLBL[k]}</span>`).join('')
+   : mode==='water' ? [['#084594','Abundant'],['#2171b5','High'],['#4292c6','Moderate'],['#9ecae1','Adequate'],['#deebf7','Limited']].map(k=>`<span><i style="background:${k[0]}"></i>${k[1]}</span>`).join('')
    : '<span><i style="background:#2e7d32"></i>72+</span><span><i style="background:#1f6feb"></i>52-71</span><span><i style="background:#ef6c00"></i>32-51</span><span><i style="background:#c62828"></i>&lt;32</span>';}
 function trend(){document.getElementById('trend').innerHTML = CON.statewide_trend?`<h2>Statewide trend</h2><div class="card">${CON.statewide_trend}</div>`:'';}
 function contagionPanel(){const el=document.getElementById('contagion');let h='';const w=CON.siting_windows;
