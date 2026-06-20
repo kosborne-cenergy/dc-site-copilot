@@ -1,0 +1,22 @@
+{
+  "_comment": "Target VA counties for the DC Policy Radar today-MVP. DC-relevant mix across NoVA + spread regions to show motion/contagion. Match to geojson by name+state FIPS 51.",
+  "state": "Virginia",
+  "state_fips": "51",
+  "counties": [
+    {"name": "Loudoun", "fips": "51107", "region": "NoVA / Data Center Alley"},
+    {"name": "Prince William", "fips": "51153", "region": "NoVA"},
+    {"name": "Fairfax", "fips": "51059", "region": "NoVA"},
+    {"name": "Fauquier", "fips": "51061", "region": "NoVA exurb"},
+    {"name": "Culpeper", "fips": "51047", "region": "Piedmont"},
+    {"name": "Spotsylvania", "fips": "51177", "region": "Fredericksburg"},
+    {"name": "Stafford", "fips": "51179", "region": "Fredericksburg"},
+    {"name": "Frederick", "fips": "51069", "region": "Shenandoah"},
+    {"name": "Henrico", "fips": "51087", "region": "Richmond metro"},
+    {"name": "Chesterfield", "fips": "51041", "region": "Richmond metro"},
+    {"name": "Caroline", "fips": "51033", "region": "Central"},
+    {"name": "King George", "fips": "51099", "region": "Northern Neck"},
+    {"name": "Prince George", "fips": "51149", "region": "Tri-Cities"},
+    {"name": "Mecklenburg", "fips": "51117", "region": "Southside"},
+    {"name": "Pittsylvania", "fips": "51143", "region": "Southside"}
+  ]
+}
