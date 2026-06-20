@@ -104,12 +104,24 @@ Multi-model = the explicit constraint: **Gemma does the free heavy bulk, Gemini 
 4. All 3 models visibly used.
 5. Live from the shared GitHub repo.
 
-## 13. Risks
+## 13. Judging criteria — how we win each
+Scored on: **impact · innovation · execution · use of AI · presentation.**
+| Criterion | Our strength | Move to maximize |
+|---|---|---|
+| **Impact** | DC siting = #1 AI-era infrastructure problem; VA = world's largest DC market; cuts weeks of multi-disciplinary screening to minutes; touches grid, water, community | Open with the stakes + a number; position as a decision tool both developers AND counties need |
+| **Innovation** | Policy-**MOTION** + contagion (predictive, not a static map) fused with **macro→micro** (county screen → parcel diligence); cost-smart **multi-model** architecture | Sell "policy is moving, the siting window is migrating out of Data Center Alley"; emphasize the macro→micro pipeline |
+| **Execution** | Working county radar (94 counties, real grounded data, polished UI) + transmission overlay | **Finish ONE parcel end-to-end** (exhibit + scorecard). Working-and-narrow beats broad-and-broken — this is the gap |
+| **Use of AI** | Three models, each for its edge: Gemma 4 local (free heavy classify) + Gemini 3.5 grounded (live data) + Claude (synthesis/orchestration) | Make it **visible** in the demo — narrate each model's job; optional live "ask the radar" agent for a wow moment |
+| **Presentation** | Strong narrative + a real, current insight | Tight **2-min**: impact → live demo (county→parcel→exhibit) → AI architecture → scale vision. Rehearse. Slide with the 3-model diagram |
+
+**Priority for the 3 hours (by score-per-hour):** 1) Execution — finish the parcel exhibit. 2) Use-of-AI visible. 3) Presentation script + slide. Impact/Innovation = framing, cheap.
+
+## 14. Risks
 - **Parcel GIS is the long pole** → reuse Cenergy scripts; pre-pick 1–2 demo parcels; P2 starts at minute 0.
 - **Fiber data is sparse** → qualitative/grounded, labeled.
 - **NWI/FEMA/USGS endpoints + reprojection** fiddly → smoke-test in first 20 min; have a cached fallback exhibit.
 - **3 hrs is tight** → MVP is one parcel done end-to-end; breadth (many parcels) is stretch.
 - Data is AI-assisted/demo — label "not legal/engineering advice; verify."
 
-## 14. Naming
+## 15. Naming
 Working name **SiteSignal** (alt: GridSite, ParcelScout, OptiSite). Team's call.
