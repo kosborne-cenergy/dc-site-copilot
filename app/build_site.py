@@ -118,7 +118,10 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
    <div class="modes"><span class="mode on" data-mode="stance" onclick="setMode('stance')">Stance</span>
      <span class="mode" data-mode="trajectory" onclick="setMode('trajectory')">Trajectory</span>
      <span class="mode" data-mode="score" onclick="setMode('score')">Buildability</span>
-     <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span></div>
+     <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span>
+     <span class="mode" id="subbtn" onclick="toggleSub()">🔋 Substations</span>
+     <span class="mode" id="ewastebtn" onclick="toggleEWaste()">♻️ E-Waste</span>
+     <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span></div>
    <div class="legend" id="legend"></div>
    <div id="trend"></div>
    <div id="detail"><p class="hint">Click a county to see its data-center stance, trajectory, and the policy action behind it.</p></div>
@@ -181,6 +184,49 @@ function toggleTx(){const b=document.getElementById('txbtn');
   fetch('./va_transmission.geojson').then(r=>r.json()).then(d=>{
     txLayer=L.geoJSON(d,{style:txStyle}).addTo(map);b.textContent=`⚡ Transmission (${d.features.length})`;
   }).catch(e=>{b.textContent='⚡ needs localhost';b.classList.remove('on');});}
+// substations overlay
+let subLayer=null;
+function toggleSub(){const b=document.getElementById('subbtn');
+  if(subLayer){map.removeLayer(subLayer);subLayer=null;b.classList.remove('on');b.textContent='🔋 Substations';return;}
+  b.classList.add('on');b.textContent='🔋 loading…';
+  fetch('./va_substations.geojson').then(r=>r.json()).then(d=>{
+    subLayer=L.geoJSON(d,{
+      pointToLayer: (f,ll)=>L.circleMarker(ll,{radius:5,fillColor:'#ef6c00',color:'#fff',weight:1,fillOpacity:.9}),
+      onEachFeature: (f,l)=>l.bindPopup(`<b>${f.properties.name}</b><br>Voltage: ${f.properties.voltage||'Unknown'}<br>Operator: ${f.properties.operator||'Unknown'}`)
+    }).addTo(map);
+    b.textContent=`🔋 Substations (${d.features.length})`;
+  }).catch(e=>{b.textContent='🔋 needs localhost';b.classList.remove('on');});}
+
+// ewaste overlay
+let ewasteLayer=null;
+function toggleEWaste(){const b=document.getElementById('ewastebtn');
+  if(ewasteLayer){map.removeLayer(ewasteLayer);ewasteLayer=null;b.classList.remove('on');b.textContent='♻️ E-Waste';return;}
+  b.classList.add('on');b.textContent='♻️ loading…';
+  fetch('./va_ewaste.geojson').then(r=>r.json()).then(d=>{
+    ewasteLayer=L.geoJSON(d,{
+      pointToLayer: (f,ll)=>L.circleMarker(ll,{radius:5,fillColor:'#2e7d32',color:'#fff',weight:1,fillOpacity:.9}),
+      onEachFeature: (f,l)=>l.bindPopup(`<b>${f.properties.FacilityName}</b><br>Address: ${f.properties.StreetAddress}<br>City: ${f.properties.City}<br>Operator: ${f.properties.Operator}`)
+    }).addTo(map);
+    b.textContent=`♻️ E-Waste (${d.features.length})`;
+  }).catch(e=>{b.textContent='♻️ needs localhost';b.classList.remove('on');});}
+// fiber overlay (hubs + long-haul corridors) — public-source, compiled + scraped
+let fibLayer=null;
+const CTYPE={strategic:{color:'#0aa',weight:3.4,dash:null},dark:{color:'#2e7d32',weight:3,dash:'7 6'},backbone:{color:'#1f6feb',weight:2,dash:null}};
+function toggleFiber(){const b=document.getElementById('fibtn');
+  if(fibLayer){map.removeLayer(fibLayer);fibLayer=null;b.classList.remove('on');b.textContent='🔌 Fiber';return;}
+  b.classList.add('on');b.textContent='🔌 loading…';
+  fetch('./va_fiber.geojson').then(r=>r.json()).then(d=>{
+    fibLayer=L.geoJSON(d,{
+      style:f=>{const s=CTYPE[f.properties.ctype]||CTYPE.backbone;return {color:s.color,weight:s.weight,opacity:.85,dashArray:s.dash};},
+      pointToLayer:(f,ll)=>{const t=f.properties.tier;const r=t===1?8:t===2?6:5;
+        return L.circleMarker(ll,{radius:r,fillColor:t===1?'#c62828':t===2?'#ef6c00':'#8e44ad',color:'#fff',weight:1.5,fillOpacity:.95});},
+      onEachFeature:(f,l)=>{const p=f.properties;
+        l.bindPopup(p.kind==='hub'
+          ?`<b>${p.name}</b><br><i>${p.type} · tier ${p.tier} hub</i><br>${p.why}`
+          :`<b>${p.name}</b><br><i>${p.ctype} corridor</i><br>Carriers: ${p.owners}<br>${p.why}`);}
+    }).addTo(map);
+    b.textContent=`🔌 Fiber (${d.features.length})`;
+  }).catch(e=>{b.textContent='🔌 needs localhost';b.classList.remove('on');});}
 function arrow(t){return t==='tightening'?'<b style="color:var(--mor)">▲ tightening</b>':t==='loosening'?'<b style="color:var(--pos)">▼ loosening</b>':'<b style="color:#888">▬ stable</b>';}
 function showDetail(fips){const r=byFips[fips],d=document.getElementById('detail');
   if(!r){d.innerHTML='<p class="hint">No classified data for this locality.</p>';return;}
@@ -229,5 +275,17 @@ tx = DATA / "va_transmission.geojson"
 if tx.exists():
     shutil.copy(tx, DIST / "va_transmission.geojson")
     print(f"copied transmission overlay ({tx.stat().st_size//1024} KB)")
+sub = DATA / "va_substations.geojson"
+if sub.exists():
+    shutil.copy(sub, DIST / "va_substations.geojson")
+    print(f"copied substations overlay ({sub.stat().st_size//1024} KB)")
+ewaste = DATA / "va_ewaste.geojson"
+if ewaste.exists():
+    shutil.copy(ewaste, DIST / "va_ewaste.geojson")
+    print(f"copied e-waste overlay ({ewaste.stat().st_size//1024} KB)")
+fib = DATA / "va_fiber.geojson"
+if fib.exists():
+    shutil.copy(fib, DIST / "va_fiber.geojson")
+    print(f"copied fiber overlay ({fib.stat().st_size//1024} KB)")
 print(f"wrote dist/index.html ({len(out)//1024} KB) | {n} counties | Tier1={t1} Avoid={avoid} closing={closing}")
 print("top 8:", ", ".join(f"{r['name']}({r['score']})" for r in records[:8]))
