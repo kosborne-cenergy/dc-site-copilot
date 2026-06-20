@@ -265,6 +265,13 @@ function showDetail(fips){const r=byFips[fips],d=document.getElementById('detail
   if(!r){d.innerHTML='<p class="hint">No classified data for this locality.</p>'+fiberBlock(fips);return;}
   d.innerHTML=`<p class="county-name">${r.name} County</p>
    <span class="tag" style="background:${STANCE[r.stance]}">${SLABEL[r.stance]||r.stance}</span> ${arrow(r.trajectory)}
+   <div class="card" style="margin-top:8px;background:#f7f9fc">
+     <div class="t">📋 Data-center ordinance</div>
+     <div class="kv"><b>Has ordinance:</b> ${r.zoning_path&&r.zoning_path!=='unclear'?('Yes — '+r.zoning_path):'None noted / unclear'}</div>
+     <div class="kv"><b>Moratorium:</b> ${r.stance==='moratorium'?'<b style="color:#c62828">ACTIVE</b>':'none noted'}</div>
+     <div class="kv"><b>Last change:</b> ${r.recent_action_year||'—'}${r.recent_action?(' — '+r.recent_action):''}</div>
+     <div class="kv"><b>Main requirements:</b> ${r.key_limits||'—'}</div>
+   </div>
    <div class="kv" style="margin-top:8px"><b>Buildability:</b> <span class="score" style="color:${scoreColor(r.score)}">${r.score}/100</span> — ${r.tier}</div>
    <div class="kv"><b>Zoning path:</b> ${r.zoning_path||'—'}</div>
    <div class="kv"><b>Key limits:</b> ${r.key_limits||'—'}</div>
