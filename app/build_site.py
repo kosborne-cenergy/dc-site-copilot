@@ -95,7 +95,7 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
  /* map view */
  #mapwrap{display:grid;grid-template-columns:1fr 370px;height:calc(100vh - 92px)}
  #map{height:100%} aside{border-left:1px solid #e3e3e3;overflow:auto;padding:14px;background:#fafbfc}
- .modes{display:flex;gap:6px;margin-bottom:8px}
+ .modes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
  .mode{background:#eef2f7;border:1px solid #d7dee8;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px}
  .mode.on{background:var(--blue);color:#fff;border-color:var(--blue)}
  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin:4px 0 10px}
