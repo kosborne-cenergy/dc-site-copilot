@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "purpose": "Curated VA data-center projects that were stopped, paused, rejected, or blocked by moratorium. Map-overlay source for build_site.py -> dist/va_stopped_dc.geojson.",
+    "WARNING": "AI-seeded demo data. Coordinates are APPROXIMATE (locality-level). Every entry has verified=false until a human confirms the facts and replaces source with a real URL. DO NOT present as authoritative — label as demo and verify before the pitch.",
+    "status_values": ["rejected", "withdrawn", "paused", "moratorium"],
+    "compiled": "2026-06-20"
+  },
+  "projects": [
+    {
+      "name": "PW Digital Gateway (litigation)",
+      "locality": "Prince William County", "fips": "51153",
+      "status": "paused", "year": "2024",
+      "reason": "~2,100-acre rezoning approved Dec 2023; challenged in court, construction stalled by litigation.",
+      "source": "VERIFY — widely reported (Prince William Times / WaPo)",
+      "lat": 38.79, "lon": -77.61, "verified": false
+    },
+    {
+      "name": "Fauquier moratorium / restrictive posture",
+      "locality": "Fauquier County", "fips": "51061",
+      "status": "moratorium", "year": "2023",
+      "reason": "County imposed tight limits / pause on new data-center applications amid resident opposition.",
+      "source": "VERIFY — local board minutes",
+      "lat": 38.72, "lon": -77.80, "verified": false
+    },
+    {
+      "name": "Warrenton AWS site (contested approval)",
+      "locality": "Town of Warrenton (Fauquier)", "fips": "51061",
+      "status": "paused", "year": "2023",
+      "reason": "SUP approved by narrow vote March 2023; lawsuits and appeals followed, delaying the project.",
+      "source": "VERIFY — local reporting",
+      "lat": 38.71, "lon": -77.79, "verified": false
+    },
+    {
+      "name": "Culpeper application pushback",
+      "locality": "Culpeper County", "fips": "51047",
+      "status": "rejected", "year": "2024",
+      "reason": "One or more rezoning/SUP requests denied or withdrawn after community opposition.",
+      "source": "VERIFY — county planning records",
+      "lat": 38.47, "lon": -77.99, "verified": false
+    },
+    {
+      "name": "Caroline County pause",
+      "locality": "Caroline County", "fips": "51033",
+      "status": "paused", "year": "2024",
+      "reason": "Proposed campus delayed pending utility/grid and ordinance review.",
+      "source": "VERIFY",
+      "lat": 38.03, "lon": -77.35, "verified": false
+    },
+    {
+      "name": "Page County restrictive ordinance",
+      "locality": "Page County", "fips": "51139",
+      "status": "moratorium", "year": "2024",
+      "reason": "Rural county adopted limits / pause on data-center development.",
+      "source": "VERIFY",
+      "lat": 38.62, "lon": -78.52, "verified": false
+    },
+    {
+      "name": "Clarke County prohibition posture",
+      "locality": "Clarke County", "fips": "51043",
+      "status": "moratorium", "year": "2023",
+      "reason": "Strongly restrictive zoning effectively blocking large data centers.",
+      "source": "VERIFY",
+      "lat": 39.11, "lon": -78.02, "verified": false
+    },
+    {
+      "name": "Orange County withdrawal",
+      "locality": "Orange County", "fips": "51137",
+      "status": "withdrawn", "year": "2024",
+      "reason": "Developer withdrew application amid opposition / unfavorable staff report.",
+      "source": "VERIFY",
+      "lat": 38.25, "lon": -78.11, "verified": false
+    },
+    {
+      "name": "Spotsylvania contested project",
+      "locality": "Spotsylvania County", "fips": "51177",
+      "status": "paused", "year": "2024",
+      "reason": "Large campus proposal delayed during rezoning review.",
+      "source": "VERIFY",
+      "lat": 38.20, "lon": -77.66, "verified": false
+    },
+    {
+      "name": "Stafford County pushback",
+      "locality": "Stafford County", "fips": "51179",
+      "status": "rejected", "year": "2024",
+      "reason": "Rezoning request denied / sent back amid resident concerns.",
+      "source": "VERIFY",
+      "lat": 38.42, "lon": -77.41, "verified": false
+    }
+  ]
+}
