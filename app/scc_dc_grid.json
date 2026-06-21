@@ -1,0 +1,182 @@
+{
+  "meta": {
+    "title": "Dominion SCC Data-Center Grid Intelligence (Virginia)",
+    "what": "Where data-center load can actually get powered in Dominion territory, distilled from Dominion's own Virginia SCC docket filings (1989-2026). Demand-side / energy dimension for DC Site Copilot.",
+    "method": "Semantic+keyword retrieval over a 1.1M-chunk local RAG of 68,000 Dominion SCC filings (mxbai-embed-large, cross-encoder rerank), 16 DC-siting queries, hand-synthesized with case+URL citations. RAG is local/free; teammates cannot re-query it, so this layer is pre-computed.",
+    "as_of": "2026-06-20",
+    "confidence": "Every MW/date/figure is sourced to a primary SCC case + document URL but tagged 'likely' until re-verified against the cited filing. Demo intelligence, not engineering advice.",
+    "tier_legend": {
+      "saturated": "Existing DC core, power-constrained, needs major new transmission, local zoning tightening. Hard to add new load.",
+      "building": "Dominion has SCC-approved/active transmission + new DC substations underway. Proven-servable corridors — the migration whitespace.",
+      "emerging": "Early load-area growth, new substation just filed; runway but less certainty."
+    }
+  },
+
+  "statewide_demand": {
+    "system_peak_2039_mw": 45000,
+    "system_peak_dec2024_mw": 18409,
+    "dc_load_dec2024_mw": 3600,
+    "dc_share_of_peak_pct": 20,
+    "net_growth_from_dc_pct": 100,
+    "non_dc_load_trend": "flat-to-declining through ~2029-2030; 100% of net load growth is data centers",
+    "system_load_factor_2024_pct": 63,
+    "system_load_factor_2039_pct": 72,
+    "dc_load_factor_pct": "92-93",
+    "largest_single_campus_request_mw": 3596,
+    "largest_campus_substations_needed": 12,
+    "sources": [
+      {"fact": "peak >45,000 MW by 2039 (Dominion witness Green)", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/86tc01%21.PDF"},
+      {"fact": "3,600 MW DC = ~20% of 18,409 MW peak, Dec 2024", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/86s701%21.PDF"},
+      {"fact": "load factor 63%->72% by 2039; non-DC load decoupled/declining", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/86tn01%21.PDF"},
+      {"fact": "single campus 3,596 MW = twelve 300 MW substations (PEC IR 3-15)", "case": "PUR-2026-00011", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/8b_w01%21.PDF"}
+    ]
+  },
+
+  "large_load_queue": {
+    "total_requests_mw": 70000,
+    "vs_dom_zone_peak": "nearly triple the DOM Zone all-time peak",
+    "assigned_connection_through_2031_mw": 25000,
+    "under_study_mw": 45000,
+    "contracted_signed_esa_mw": 9000,
+    "construction_authorized_cloa_mw": 6000,
+    "engineering_study_eloa_mw": 26000,
+    "process": "Applies to DP Requests >=~100 MW serving data centers in DOM Zone; individual DP Requests capped at 300 MW each; 4 stages (Initiation, Feasibility, Development, Execution); submitted by the EDC via the Delivery Point Exchange (DPE), not the end customer; ESA-executed projects proposed to get queue priority (firmer, less speculative).",
+    "sources": [
+      {"fact": "~70,000 MW total large-load DP requests = nearly 3x DOM Zone peak; 25,000 MW assigned through 2031, 45,000 MW under study (Staff witness Joshipura)", "case": "PUR-2026-00011", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/8c2h01%21.PDF"},
+      {"fact": "9,000 MW signed ESAs, 6,000 MW CLOA, 26,000 MW under ELOA (Sierra Club, citing Company reporting Dec 2024)", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/86s701%21.PDF"},
+      {"fact": "queue process scope >=100 MW, 300 MW DP cap, 4 stages, DPE (Amazon witness Brooks)", "case": "PUR-2026-00011", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/8c3501%21.PDF"}
+    ]
+  },
+
+  "rate_regime_gs5": {
+    "summary": "New GS-5 high-load-factor rate class, effective Jan 1, 2027 — the cost/risk regime a new VA data center signs into.",
+    "applies_to": "customers with measured or contracted demand >= 25 MW AND load factor >= 75% (predominantly data centers); 139 current accounts",
+    "contract_term_years": 14,
+    "min_demand_charge_td_pct": 85,
+    "min_demand_charge_generation_pct": 60,
+    "exit": "may exit after 5 years (excluding ramp); exit fee = 36 months of minimum charges",
+    "collateral": "50% of total minimum charges for full contract term if below credit/liquidity thresholds",
+    "load_study_fee_usd": "10,000 to 100,000 (one-time, by scale/complexity)",
+    "grandfathering": "loads with signed LOA/ESA before the tariff effective date grandfathered unless they expand by >25 MW",
+    "purpose": "protect against stranded costs + cost-shifting to non-DC ratepayers; discourage speculative overbuild",
+    "sources": [
+      {"fact": "GS-5 criteria 25 MW & 75% LF, 139 accounts (Company witness Baine)", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/88r901%21.PDF"},
+      {"fact": "14-yr term, 85%/60% min demand, collateral, exit fees (PEC, post-approval)", "case": "PUR-2026-00011", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/8b_w01%21.PDF"},
+      {"fact": "exit after 5 yr = 36-mo exit fee; 50% collateral; $10k-$100k load study (Company witness Wishart)", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/88rn01%21.PDF"},
+      {"fact": "14-yr term + ramp up to 4 yr (Amazon/joint stipulation)", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/87_%4001%21.PDF"}
+    ]
+  },
+
+  "flexibility_fast_track": {
+    "summary": "Flexible / phased grid connection + bring-your-own-capacity (BYOC) is the emerging way to power a DC faster than waiting for transmission.",
+    "connect_faster_years": "3-5",
+    "avoided_per_gw": "$78 million and 273 MW of capacity buildout per GW of DC demand (flexible connections)",
+    "mechanisms": ["conditional firm service (curtail during system stress)", "static ramped / phased connection", "bring-your-own-capacity (on-site generation/storage)"],
+    "sources": [
+      {"fact": "flexible DCs connect 3-5 yr faster; avoid $78M + 273 MW/GW; 4 of 6 sites grid-constrained (Emerald AI / Princeton ZERO Lab)", "case": "PUR-2026-00011", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/8bpl01%21.PDF"},
+      {"fact": "phased/ramped connection brings DCs on faster within capacity limits (Sierra Club witness Nelson)", "case": "PUR-2025-00058", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/88sc01%21.PDF"}
+    ]
+  },
+
+  "transmission_cost_signal": {
+    "dc_driven_transmission_projects": 88,
+    "dc_driven_transmission_dollars": "~$2.4 billion",
+    "note": "Dominion identified 88 planned transmission projects 'primarily being driven by data center load growth' (Sierra Club, citing Dominion Resource Plan). Network-upgrade cost is increasingly assigned to the large load that causes it (GS-5, CIAC, 'but-for' cost-cause tests).",
+    "sources": [
+      {"fact": "88 DC-driven transmission projects ~$2.4B", "case": "PUR-2025-00057", "url": "https://www.scc.virginia.gov/docketsearch/DOCS/86lc01%21.PDF"}
+    ]
+  },
+
+  "load_areas": [
+    {
+      "county": "Loudoun",
+      "area": "Data Center Alley (Eastern Loudoun Load Area)",
+      "tier": "saturated",
+      "existing_dc": "~181 data centers in ~30 sq mi",
+      "constraint": "Power-constrained era since 2022; Board ended 'by-right' DC development March 18, 2025; relief requires a new 500 kV loop around DCA.",
+      "relief_transmission": ["Aspen-Golden 500-230 kV (target COD June 1, 2028)", "Mars-Wishing Star 500/230 kV", "Golden-Mars 500-230 kV (completes DCA 500 kV loop)"],
+      "dc_takeaway": "Saturated + politically tightening. New large load faces transmission queue + community resistance. Power, not land, is the binding constraint.",
+      "cases": ["PUR-2025-00056", "PUR-2024-00032", "PUR-2022-00183"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/85y401%21.PDF"
+    },
+    {
+      "county": "Prince William",
+      "area": "PW data-center campuses (south of Loudoun)",
+      "tier": "saturated",
+      "approved_load": "~30 million sq ft approved ≈ 4.5 GW; power must route through Loudoun",
+      "constraint": "Adds to the same constrained NoVA transmission corridor; rising community resistance.",
+      "dc_takeaway": "Big approved footprint but power delivery depends on the contested Loudoun 500 kV build. High execution risk.",
+      "cases": ["PUR-2025-00056", "PUR-2024-00032"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/88qr01%21.PDF"
+    },
+    {
+      "county": "Mecklenburg",
+      "area": "South Hill / Boydton Load Area (Southside)",
+      "tier": "building",
+      "dc_load_mw": 600,
+      "new_substations": ["Tunstall (Hillcrest Campus, 180 MW)", "Evans Creek (Roanoke Campus, 300 MW)", "Raines (Interstate Campus, 120 MW)", "Nebula Switching Station"],
+      "energize": "~2025-2028",
+      "notes": "Three DC campuses, 600 MW total; MEC (co-op) Visor DP +221 MW by 2035; resolves a 300 MW N-1-1 load-drop. The southern 'Data Center Alley'.",
+      "dc_takeaway": "Proven-servable Southside whitespace: Dominion is actively building 600 MW of DC substations here. Land cheaper, less NIMBY than NoVA.",
+      "cases": ["PUR-2022-00167", "PUR-2025-00014"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/7rpk01%21.PDF"
+    },
+    {
+      "county": "Henrico",
+      "area": "White Oak Technology Park (WOTP) / Technology Boulevard",
+      "tier": "building",
+      "dc_load_mw": 600,
+      "new_substations": ["Bunker Substation 230-34.5 kV (Development A, 300 MW)", "Saltwood Switching Station 230 kV (Development B, 300 MW)"],
+      "existing_dc": "Portugee + White Oak Substations already serve Meta and QTS campuses",
+      "transmission": "Technology Boulevard 230 kV Project; lines rated 1,573 MVA summer",
+      "dc_takeaway": "Established central-VA DC node (Meta/QTS) actively expanding +600 MW on fresh 230 kV. Away from NoVA politics, near Richmond fiber.",
+      "cases": ["PUR-2025-00042", "PUR-2023-00110"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/84_801%21.PDF"
+    },
+    {
+      "county": "Chesterfield",
+      "area": "Western Chesterfield Load Area (Upper Magnolia Green)",
+      "tier": "building",
+      "dc_load_mw": "approaching 1,000 (1 GW) by 2033",
+      "new_substations": ["Duval Substation (230 kV)", "Garnet", "Topaz", "Amethyst (all 230 kV, for the planned DC development)"],
+      "transmission": "Duval-Midlothian 230 kV double-circuit lines (energized June 2028)",
+      "constraint": "Existing Midlothian/Winterpock substations are 34.5 kV and cannot support the 230 kV DC service; transformers saturate 2030-2037.",
+      "dc_takeaway": "~1 GW DC build approaching by 2033 on brand-new 230 kV substations. Strong central-VA growth corridor south of Richmond.",
+      "cases": ["PUR-2025-00073"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/853w01%21.PDF"
+    },
+    {
+      "county": "Stafford",
+      "area": "Stafford Load Area (I-95 / Centreport)",
+      "tier": "building",
+      "dc_load_mw": 262,
+      "new_substations": ["Centreport Substation 230-34.5 kV"],
+      "transmission": "Centreport 230 kV Loop (1,573 MVA conductor)",
+      "dc_takeaway": "262 MW DC on a new 230 kV substation on the I-95 corridor — exurban-NoVA growth with more land than Loudoun.",
+      "cases": ["PUR-2024-00170"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/81dk01%21.PDF"
+    },
+    {
+      "county": "Goochland",
+      "area": "Goochland Load Area (West Creek)",
+      "tier": "emerging",
+      "dc_load_mw": 37,
+      "new_substations": ["West Creek 230 kV Loop and Substation"],
+      "notes": "37 MW for new manufacturing/warehouses plus future load; relieves Rockville, North Pole, Short Pump, River Road substations filling 2028-2030.",
+      "dc_takeaway": "Emerging central-VA frontier just west of Richmond/Short Pump; new 230 kV capacity arriving — early but real runway.",
+      "cases": ["PUR-2026-00009"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/8%408s01%21.PDF"
+    },
+    {
+      "county": "Charlotte / Halifax / Mecklenburg",
+      "area": "Southside transmission belt (Butler Farm / Finneywood)",
+      "tier": "building",
+      "new_substations": ["Butler Farm Substation 230 kV (Mecklenburg)", "Finneywood 500/230 kV Switching Station"],
+      "transmission": ["Butler Farm-Clover 230 kV Line #2281 (~19.1 mi)", "Butler Farm-Finneywood 230 kV Line #2256 (~7.0 mi)"],
+      "notes": "Built to serve a data-center customer; ties new DC load into the 500 kV Clover-Rawlings / Rawlings-Heritage backbone.",
+      "dc_takeaway": "Bulk 500/230 kV capacity arriving across deep Southside — the long-run expansion frontier as NoVA closes.",
+      "cases": ["PUR-2022-00175"],
+      "url": "https://www.scc.virginia.gov/docketsearch/DOCS/7ptc01%21.PDF"
+    }
+  ]
+}

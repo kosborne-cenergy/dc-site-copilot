@@ -1,0 +1,22 @@
+# Cloud Run upload filter. NOTE: presence of this file makes gcloud IGNORE .gitignore,
+# so dist/ (gitignored) IS uploaded. Keep only what the running app needs.
+.git/
+.gitignore
+__pycache__/
+*.pyc
+_scratch/
+_*.json
+_*.txt
+data/
+counties_all.json
+*.dxf
+*.png
+*.gguf
+get_geo.py
+get_transmission.py
+get_fiber.py
+get_water.py
+get_substations.py
+pipeline.py
+build_site.py
+sentiment_youtube.py
