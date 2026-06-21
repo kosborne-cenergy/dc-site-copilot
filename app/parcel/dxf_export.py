@@ -86,17 +86,23 @@ ACI_GREEN = 3
 ACI_CYAN = 4
 ACI_BLUE = 5
 ACI_WHITE = 7
+ACI_GRAY = 8       # dark gray (existing-building footprints)
+ACI_BROWN = 34     # brown (topo contours) -- ACI 34 reads as a muted brown
+ACI_DKGREEN = 84   # darker/foresty green (tree canopy, distinct from BUILDABLE)
 
 # --- layer definitions: name -> (color, linetype) ----------------------------
 LAYERS = {
-    "PARCEL":          (ACI_WHITE,  "CONTINUOUS"),
-    "SETBACK":         (ACI_YELLOW, "DASHED"),
-    "BUILDABLE":       (ACI_GREEN,  "CONTINUOUS"),
-    "WETLANDS":        (ACI_CYAN,   "CONTINUOUS"),
-    "FLOOD":           (ACI_BLUE,   "CONTINUOUS"),
-    "DWELLING-OFFSET": (ACI_RED,    "CONTINUOUS"),
-    "ANNOTATION":      (ACI_WHITE,  "CONTINUOUS"),
-    "TITLEBLOCK":      (ACI_WHITE,  "CONTINUOUS"),
+    "PARCEL":             (ACI_WHITE,   "CONTINUOUS"),
+    "SETBACK":            (ACI_YELLOW,  "DASHED"),
+    "BUILDABLE":          (ACI_GREEN,   "CONTINUOUS"),
+    "WETLANDS":           (ACI_CYAN,    "CONTINUOUS"),
+    "FLOOD":              (ACI_BLUE,    "CONTINUOUS"),
+    "DWELLING-OFFSET":    (ACI_RED,     "CONTINUOUS"),
+    "TREES":              (ACI_DKGREEN, "CONTINUOUS"),
+    "TOPO-CONTOURS":      (ACI_BROWN,   "CONTINUOUS"),
+    "EXISTING-BUILDINGS": (ACI_GRAY,    "CONTINUOUS"),
+    "ANNOTATION":         (ACI_WHITE,   "CONTINUOUS"),
+    "TITLEBLOCK":         (ACI_WHITE,   "CONTINUOUS"),
 }
 
 
@@ -156,6 +162,51 @@ def _coerce_geom(obj, all_features=True):
         return _safe_shape(obj)
 
     raise ValueError("Unsupported GeoJSON type: %r" % t)
+
+
+def _coerce_contours(topo_geojson):
+    """Coerce a topo contours input into a list of (shapely geometry 4326, elev_ft).
+
+    Accepts the ``topo.topo`` output's ``contours_geojson`` FeatureCollection
+    (LineStrings each carrying ``properties.elev_ft``), a path to such a
+    .geojson, or None. Each (Multi)LineString feature is kept individually so a
+    few can be labelled with their elevation. Returns [] for None/empty/invalid
+    -- never raises (an optional layer must not abort the drawing).
+    """
+    if topo_geojson is None:
+        return []
+    obj = topo_geojson
+    try:
+        if isinstance(obj, (str, pathlib.Path)):
+            p = pathlib.Path(str(obj))
+            if not p.exists():
+                return []
+            with open(p) as f:
+                obj = json.load(f)
+        if not isinstance(obj, dict):
+            return []
+        if obj.get("type") == "FeatureCollection":
+            feats = obj.get("features") or []
+        elif obj.get("type") == "Feature":
+            feats = [obj]
+        else:
+            return []
+        out = []
+        for ft in feats:
+            if not ft or not ft.get("geometry"):
+                continue
+            g = _safe_shape(ft["geometry"])
+            if g is None or g.geom_type not in ("LineString", "MultiLineString"):
+                continue
+            elev = (ft.get("properties") or {}).get("elev_ft")
+            try:
+                elev = float(elev) if elev is not None else None
+            except (TypeError, ValueError):
+                elev = None
+            out.append((g, elev))
+        return out
+    except Exception:
+        return []
 
 
 def _safe_shape(geojson_geom):
@@ -294,6 +345,42 @@ def _add_solid_hatch(msp, geom, layer, color, transparency=0.80):
         return 0
 
 
+def _add_contours(msp, topo_lines_ft, parcel_ft):
+    """Draw elevation contours (already in feet) as brown LWPOLYLINEs and add a
+    few elev_ft TEXT labels. ``topo_lines_ft`` = [(geom_ft, elev_ft|None), ...].
+
+    Returns the entity count added (polylines + labels). To avoid clutter we
+    label at most ~6 contours, spread across the set, placing the label near the
+    midpoint of the contour's longest part.
+    """
+    n = 0
+    # draw every contour line
+    for geom_ft, _elev in topo_lines_ft:
+        n += _add_geometry(msp, geom_ft, "TOPO-CONTOURS")
+
+    # choose up to ~6 lines (that have an elevation) to label, evenly spaced
+    labelable = [(g, e) for (g, e) in topo_lines_ft if e is not None and not g.is_empty]
+    if not labelable:
+        return n
+    h = _label_h(parcel_ft) * 0.75  # contour labels a touch smaller
+    max_labels = min(6, len(labelable))
+    step = max(1, len(labelable) // max_labels)
+    for i in range(0, len(labelable), step):
+        geom_ft, elev = labelable[i]
+        try:
+            line0 = geom_ft.geoms[0] if geom_ft.geom_type == "MultiLineString" else geom_ft
+            mid = line0.interpolate(0.5, normalized=True)
+            t = msp.add_text(
+                "%g ft" % elev,
+                dxfattribs={"layer": "TOPO-CONTOURS", "height": h, "color": ACI_BROWN},
+            )
+            t.set_placement((mid.x, mid.y), align=TextEntityAlignment.MIDDLE_LEFT)
+            n += 1
+        except Exception:
+            continue
+    return n
+
+
 # =============================================================================
 # acreage (geometry is already in FEET here)
 # =============================================================================
@@ -323,6 +410,9 @@ def build_dxf(
     wetlands_geojson=None,
     flood_geojson=None,
     dwelling_line_geojson=None,
+    tree_geojson=None,
+    topo_geojson=None,
+    buildings_geojson=None,
     out_path="data/parcel_exhibit.dxf",
     label="Proposed Data Center Site",
 ):
@@ -341,6 +431,15 @@ def build_dxf(
         dwelling_line_geojson: nearest-dwelling line (dwellings.py) -- a
             LineString from the site to the closest off-site dwelling. Red, with
             a distance-in-feet label. Optional.
+        tree_geojson: tree-canopy polygons (canopy.tree_canopy -> canopy_geojson).
+            Drawn on the TREES layer in foresty green. Optional.
+        topo_geojson: elevation contours (topo.topo -> contours_geojson) -- a
+            FeatureCollection of LineStrings each tagged ``properties.elev_ft``.
+            Drawn on TOPO-CONTOURS in brown, with a few elev_ft TEXT labels.
+            Optional.
+        buildings_geojson: existing building footprints
+            (buildings.buildings_in_parcel -> buildings_geojson). Drawn on
+            EXISTING-BUILDINGS as gray polygons. Optional.
         out_path: output .dxf path. Relative paths resolve under ``app/`` (the
             project root), matching the other modules' ``data/`` convention.
         label: title text + title-block project name.
@@ -362,6 +461,10 @@ def build_dxf(
     wetlands = _coerce_geom(wetlands_geojson, all_features=True)
     flood = _coerce_geom(flood_geojson, all_features=True)
     dwelling = _coerce_geom(dwelling_line_geojson, all_features=True)
+    trees = _coerce_geom(tree_geojson, all_features=True)
+    buildings = _coerce_geom(buildings_geojson, all_features=True)
+    # topo is kept as (geometry, elev_ft) pairs so we can label a few contours.
+    topo_lines = _coerce_contours(topo_geojson)
 
     # ----- 2. projection 4326 -> VA State Plane US feet ---------------------
     cen = parcel.centroid
@@ -372,6 +475,15 @@ def build_dxf(
     wetlands_ft = to_ft(wetlands) if wetlands is not None else None
     flood_ft = to_ft(flood) if flood is not None else None
     dwelling_ft = to_ft(dwelling) if dwelling is not None else None
+    trees_ft = to_ft(trees) if trees is not None else None
+    buildings_ft = to_ft(buildings) if buildings is not None else None
+    # reproject each contour line, keep its elev_ft label
+    topo_lines_ft = []
+    for geom_4326, elev_ft in topo_lines:
+        try:
+            topo_lines_ft.append((to_ft(geom_4326), elev_ft))
+        except Exception:
+            continue
 
     # setback: use supplied, else compute a 100 ft inward ring (parcel - inset).
     setback_source = "none"
@@ -399,13 +511,21 @@ def build_dxf(
     counts = {name: 0 for name in LAYERS}
 
     # ----- 4. draw geometries (order = back-to-front) -----------------------
-    # buildable fill first (behind outlines)
+    # tree canopy + topo contours sit furthest back (context under everything)
+    if trees_ft is not None and not trees_ft.is_empty:
+        counts["TREES"] += _add_geometry(msp, trees_ft, "TREES")
+    if topo_lines_ft:
+        counts["TOPO-CONTOURS"] += _add_contours(msp, topo_lines_ft, parcel_ft)
+    # buildable fill (behind outlines)
     if buildable_ft is not None and not buildable_ft.is_empty:
         counts["BUILDABLE"] += _add_solid_hatch(msp, buildable_ft, "BUILDABLE", ACI_GREEN)
     if flood_ft is not None:
         counts["FLOOD"] += _add_geometry(msp, flood_ft, "FLOOD")
     if wetlands_ft is not None:
         counts["WETLANDS"] += _add_geometry(msp, wetlands_ft, "WETLANDS")
+    # existing structures over the fills so they read against the buildable area
+    if buildings_ft is not None and not buildings_ft.is_empty:
+        counts["EXISTING-BUILDINGS"] += _add_geometry(msp, buildings_ft, "EXISTING-BUILDINGS")
     if buildable_ft is not None:
         counts["BUILDABLE"] += _add_geometry(msp, buildable_ft, "BUILDABLE")
     counts["SETBACK"] += _add_geometry(msp, setback_ft, "SETBACK")
@@ -468,6 +588,11 @@ def build_dxf(
         "buildable_acres": buildable_acres,
         "setback_source": setback_source,
         "nearest_dwelling_ft": nearest_dwelling_ft,
+        "tree_acres": round(_acres_ft(trees_ft), 3) if trees_ft is not None else None,
+        "contour_count": len(topo_lines_ft),
+        "buildings_count": (
+            counts["EXISTING-BUILDINGS"] if buildings_ft is not None else None
+        ),
         "bbox_ft": [round(minx, 2), round(miny, 2), round(maxx, 2), round(maxy, 2)],
         "label": label,
     }

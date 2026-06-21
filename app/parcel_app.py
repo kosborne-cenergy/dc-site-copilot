@@ -61,6 +61,9 @@ dwellings = _try_import("dwellings")       # may not exist yet -> graceful
 dxf_export = _try_import("dxf_export")
 nano_banana = _try_import("nano_banana")
 recommend = _try_import("recommend")
+canopy = _try_import("canopy")             # tree-canopy layer (optional)
+topo = _try_import("topo")                 # elevation contours layer (optional)
+buildings = _try_import("buildings")       # existing-building footprints (optional)
 
 bp = Blueprint("parcel", __name__)
 
@@ -268,6 +271,9 @@ def api_health():
             "dxf_export": dxf_export is not None,
             "nano_banana": nano_banana is not None,
             "recommend": recommend is not None,
+            "canopy": canopy is not None,
+            "topo": topo is not None,
+            "buildings": buildings is not None,
         },
         "import_errors": _IMPORT_ERRORS,
         "counties_loaded": len(_county_index()),
@@ -338,7 +344,7 @@ def api_parcels():
 
     fips = (request.args.get("fips") or "").strip() or None
     min_acres = _f("min_acres", 0.0) or 0.0
-    limit = int(_f("limit", 1500) or 1500)
+    limit = int(_f("limit", 12000) or 12000)
 
     bbox = None
     bbox_arg = (request.args.get("bbox") or "").strip()
@@ -381,6 +387,10 @@ def api_parcels():
         for f in fc.get("features", []):
             f.setdefault("properties", {})["suitable"] = True
         suitable_count = total
+
+    # render only the parcels that meet the acreage requirement (no clutter)
+    if min_acres:
+        fc["features"] = [f for f in fc.get("features", []) if f.get("properties", {}).get("suitable")]
 
     fc["ok"] = True
     fc["count"] = total
@@ -438,6 +448,59 @@ def api_pipeline():
     dwelling_payload, dwelling_line, dstatus = _nearest_dwelling_safe(parcel_feature, summary)
     status["dwelling"] = dstatus
 
+    # ---- 2b. extra context layers (canopy / topo / existing buildings) --------------
+    # Each is OPTIONAL and fully defensive: a missing module or a live-service
+    # failure is recorded in `status` and the layer is simply skipped -- the
+    # pipeline still returns 200 with everything else.
+    canopy_res, topo_res, buildings_res = None, None, None
+    tree_geojson = topo_geojson = buildings_geojson = None
+
+    if canopy is None:
+        status["canopy"] = "unavailable: %s" % _IMPORT_ERRORS.get("canopy", "missing")
+    else:
+        try:
+            canopy_res = canopy.tree_canopy(parcel_fc)
+            tree_geojson = (canopy_res or {}).get("canopy_geojson")
+            status["canopy"] = (canopy_res or {}).get("status", "ok")
+        except Exception as e:  # noqa: BLE001
+            status["canopy"] = "failed: %s" % str(e)[:200]
+
+    if topo is None:
+        status["topo"] = "unavailable: %s" % _IMPORT_ERRORS.get("topo", "missing")
+    else:
+        try:
+            topo_res = topo.topo(parcel_fc)
+            topo_geojson = (topo_res or {}).get("contours_geojson")
+            status["topo"] = (topo_res or {}).get("status", "ok")
+        except Exception as e:  # noqa: BLE001
+            status["topo"] = "failed: %s" % str(e)[:200]
+
+    if buildings is None:
+        status["buildings"] = "unavailable: %s" % _IMPORT_ERRORS.get("buildings", "missing")
+    else:
+        try:
+            buildings_res = buildings.buildings_in_parcel(parcel_fc)
+            buildings_geojson = (buildings_res or {}).get("buildings_geojson")
+            status["buildings"] = (buildings_res or {}).get("status", "ok")
+        except Exception as e:  # noqa: BLE001
+            status["buildings"] = "failed: %s" % str(e)[:200]
+
+    # ---- 2c. enrich the summary with the extra-layer stats (each optional) -----------
+    # Done BEFORE the render so the grounded image prompt sees canopy/slope/etc.
+    if canopy_res:
+        summary["canopy_pct"] = canopy_res.get("canopy_pct")
+        summary["canopy_acres"] = canopy_res.get("canopy_acres")
+    if topo_res:
+        summary["mean_slope_pct"] = topo_res.get("mean_slope_pct")
+        summary["max_slope_pct"] = topo_res.get("max_slope_pct")
+        summary["min_elev_ft"] = topo_res.get("min_elev_ft")
+        summary["max_elev_ft"] = topo_res.get("max_elev_ft")
+    if buildings_res:
+        summary["buildings_count"] = buildings_res.get("count")
+    # surface the nearest-dwelling distance into the summary too (for the prompt)
+    if dwelling_payload and dwelling_payload.get("distance_ft") is not None:
+        summary.setdefault("nearest_dwelling_ft", dwelling_payload["distance_ft"])
+
     # ---- 3. DXF export --------------------------------------------------------------
     dxf_url = None
     if dxf_export is None:
@@ -452,6 +515,9 @@ def api_pipeline():
                 wetlands_geojson=con.get("wetlands"),
                 flood_geojson=con.get("flood"),
                 dwelling_line_geojson=dwelling_line,
+                tree_geojson=tree_geojson,
+                topo_geojson=topo_geojson,
+                buildings_geojson=buildings_geojson,
                 out_path=out_path,
                 label="Proposed Data Center Site",
             )
@@ -477,7 +543,10 @@ def api_pipeline():
             render_summary = dict(summary)
             render_summary.setdefault("acres", summary.get("buildable_acres") or summary.get("parcel_acres"))
             out_png = os.path.join(_DOWNLOADS, "render_%s.png" % uid)
-            r = nano_banana.render_datacenter(render_summary, out_path=out_png)
+            # pass the full constraint context so the render is grounded in reality
+            r = nano_banana.render_datacenter(
+                render_summary, out_path=out_png, constraints=summary
+            )
             image_url = _save_download(r.get("image_path"), "render")
             status["image"] = "ok (%s)" % r.get("model")
         except Exception as e:  # noqa: BLE001
@@ -493,6 +562,9 @@ def api_pipeline():
             "wetlands": con.get("wetlands"),
             "flood": con.get("flood"),
             "buildable": buildable_fc,
+            "canopy": canopy_res,
+            "topo": topo_res,
+            "buildings": buildings_res,
         },
         "dwelling": (
             {**(dwelling_payload or {}), "line": dwelling_line}

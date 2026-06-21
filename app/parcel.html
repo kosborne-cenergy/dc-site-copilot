@@ -30,11 +30,14 @@
 <header><h1>🏗 DC Site Copilot — Parcel Finder</h1><a href="/">← statewide map</a></header>
 <div id="map"></div>
 <div id="panel"></div>
+<div id="lightbox" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:3000;align-items:center;justify-content:center;cursor:zoom-out"><img id="lbimg" style="max-width:94%;max-height:94%;border-radius:8px"></div>
 <div class="lgd" id="lgd" style="display:none"></div>
 <script>
-const map=L.map('map',{zoomControl:true}).setView([37.7,-78.6],7);
+const map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([37.7,-78.6],7);
 L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{maxZoom:20,subdomains:['mt0','mt1','mt2','mt3'],attribution:'&copy; Google'}).addTo(map);
 const P=document.getElementById('panel'); let parcelLayer=null, conLayers=[], needAcres=0;
+function expand(src){var lb=document.getElementById('lightbox');document.getElementById('lbimg').src=src;lb.style.display='flex';}
+function toggleBig(){var p=document.getElementById('panel');p.style.display=(p.style.display==='none')?'block':'none';setTimeout(function(){map.invalidateSize();},120);}
 
 function step1(){
  P.innerHTML=`<div class="step">Step 1 · Your project</div><h2>What are you building?</h2>
@@ -74,40 +77,53 @@ function loadCounty(fips,name){
      l.bindTooltip(`${f.properties.acreage?Math.round(f.properties.acreage)+' ac':''}${f.properties.suitable?' ✓ fits':''}`);}
   }).addTo(map);
   try{map.fitBounds(parcelLayer.getBounds(),{padding:[30,30]});}catch(e){}
-  const tot=(fc.features||[]).length, fit=(fc.features||[]).filter(f=>f.properties.suitable).length;
+  const fit=(fc.features||[]).length, scanned=fc.count||fit;
   document.getElementById('lgd').style.display='block';
-  document.getElementById('lgd').innerHTML='<i style="background:#2e7d32"></i>fits ≥'+needAcres+' ac &nbsp; <i style="background:#bbb"></i>too small';
+  document.getElementById('lgd').innerHTML='<i style="background:#2e7d32"></i>parcels ≥ '+needAcres+' acres';
   P.innerHTML=`<div class="step">Step 3 · Pick a parcel</div><h2>${name}</h2>
-   <div class="sub"><b>${fit}</b> of ${tot} parcels have ≥ ${needAcres} acres (green). Click a green parcel to run the site analysis.</div>
+   <div class="sub">${fit?`<b>${fit}</b> parcels meet ≥ ${needAcres} acres (of ${scanned} scanned). Click a green parcel to run the site analysis.`:`No parcels ≥ ${needAcres} acres found here (of ${scanned} scanned) — try a smaller project or another county.`}</div>
    <div class="back" onclick="findCounties()">← back to counties</div>`;
  }).catch(e=>{P.innerHTML=`<div class="spin">Error loading parcels. <div class="back" onclick="findCounties()">← back</div></div>`;});
 }
 function runPipeline(feat,layer){
  conLayers.forEach(l=>map.removeLayer(l));conLayers=[];
  try{map.fitBounds(layer.getBounds(),{padding:[60,60]});}catch(e){}
- P.innerHTML='<div class="spin">⏳ Running site pipeline…<br><span class="muted">wetlands · flood · setbacks · nearest dwelling · AutoCAD · AI render</span></div>';
+ const STEPS=[['Wetlands (NWI)',6],['Flood hazard (FEMA)',8],['Setbacks + buildable area',3],['Nearest dwelling',7],['AutoCAD DXF export',3],['AI site render (Nano Banana)',15]];
+ const TOT=STEPS.reduce((a,s)=>a+s[1],0); let _el=0,_done=false;
+ function _paint(){let cum=0,cur=-1;const rows=STEPS.map((s,i)=>{cum+=s[1];let st;if(_el>=cum)st='✓';else if(cur<0){cur=i;st='⏳';}else st='○';return `<div style="font-size:13px;margin:4px 0;color:${st==='✓'?'#2e7d32':st==='⏳'?'#10243e':'#aeb8c4'}">${st} ${s[0]}</div>`;}).join('');
+  const eta=Math.max(0,TOT-_el);P.innerHTML=`<div class="step">Running site pipeline</div><h2 style="margin-bottom:2px">${_el}s <span class="muted" style="font-size:13px;font-weight:normal">/ ~${TOT}s</span></h2><div class="muted" style="margin-bottom:10px">${eta>0?('about '+eta+'s remaining'):'finishing up…'}</div>${rows}`;}
+ _paint(); const _t=setInterval(()=>{if(_done)return;_el++;_paint();},1000);
  fetch('/api/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(feat)}).then(r=>r.json()).then(d=>{
+  _done=true;clearInterval(_t);
   const co=d.constraints||{}; const add=(g,style)=>{if(g&&g.features&&g.features.length){const l=L.geoJSON(g,{style:()=>style}).addTo(map);conLayers.push(l);}};
+  if(parcelLayer){map.removeLayer(parcelLayer);}                               // focus on this one parcel
+  const pBounds=L.geoJSON(feat).getBounds();
+  conLayers.push(L.geoJSON(feat,{style:()=>({color:'#fff',weight:3,fill:false})}).addTo(map)); // parcel outline
   add(co.buildable,{color:'#2e7d32',weight:2,fillColor:'#2e7d32',fillOpacity:.4});
-  add(co.wetlands,{color:'#0aa',weight:1,fillColor:'#0aa',fillOpacity:.45});
+  add((co.canopy||{}).canopy_geojson,{color:'#1b5e20',weight:0,fillColor:'#2e7d32',fillOpacity:.3});
+  add(co.wetlands,{color:'#0aa',weight:1,fillColor:'#0aa',fillOpacity:.5});
   add(co.flood,{color:'#1f6feb',weight:1,fillColor:'#1f6feb',fillOpacity:.35});
-  if(d.dwelling&&d.dwelling.line){const l=L.geoJSON(d.dwelling.line,{style:()=>({color:'#c62828',weight:3,dashArray:'5 5'})}).addTo(map);conLayers.push(l);}
-  // overlay the AI data-center render on the parcel/buildable footprint, on the map
-  if(d.image_url){try{var io=L.imageOverlay(d.image_url,layer.getBounds(),{opacity:.92,interactive:true});io.addTo(map);conLayers.push(io);}catch(e){}}
+  add((co.buildings||{}).buildings_geojson,{color:'#444',weight:1,fillColor:'#e53935',fillOpacity:.7});
+  if((co.topo||{}).contours_geojson){conLayers.push(L.geoJSON(co.topo.contours_geojson,{style:()=>({color:'#8d6e63',weight:1,opacity:.75})}).addTo(map));}
+  if(d.dwelling&&d.dwelling.line){conLayers.push(L.geoJSON(d.dwelling.line,{style:()=>({color:'#c62828',weight:3,dashArray:'5 5'})}).addTo(map));}
+  try{map.fitBounds(pBounds,{padding:[50,50]});}catch(e){}
+  // render overlaid on the parcel at low opacity so constraints stay visible
+  if(d.image_url){try{var io=L.imageOverlay(d.image_url,pBounds,{opacity:.5,interactive:false});io.addTo(map);conLayers.push(io);}catch(e){}}
   // auto-download the AutoCAD DXF as soon as it's generated
   if(d.dxf_url){try{var a=document.createElement('a');a.href=d.dxf_url;a.download=d.dxf_url.split('/').pop();document.body.appendChild(a);a.click();a.remove();}catch(e){}}
   const s=d.summary||{};
   const row=(k,v)=>v!=null?`<div class="row"><b>${k}</b><span>${v}</span></div>`:'';
-  let h=`<div class="step">Site analysis</div><h2>Parcel report</h2><div class="res">
+  let h=`<div class="step">Site analysis · this parcel</div><h2>Parcel report</h2><div class="res">
    ${row('Parcel acres',s.parcel_acres)}${row('Buildable acres',s.buildable_acres)}${row('Buildable %',s.buildable_pct)}
+   ${row('Tree canopy %',s.canopy_pct)}${row('Mean slope %',s.mean_slope_pct)}${row('Elev range (ft)',(s.min_elev_ft!=null&&s.max_elev_ft!=null)?(s.min_elev_ft+'–'+s.max_elev_ft):null)}
    ${row('Wetlands (ac)',s.wetland_acres)}${row('Flood SFHA (ac)',s.flood_sfha_acres)}
-   ${row('Nearest dwelling (ft)',(d.dwelling&&d.dwelling.nearest_dwelling_ft)||s.nearest_dwelling_ft)}</div>`;
-  if(d.image_url) h+=`<img class="render" src="${d.image_url}" alt="AI render of proposed data center">`;
-  if(d.dxf_url) h+=`<a class="dl" href="${d.dxf_url}" download>⬇ Download AutoCAD DXF</a>`;
-  h+=`<div class="muted" style="margin-top:8px">Map: green=buildable · teal=wetlands · blue=flood · red dashed=nearest dwelling. AI-generated demo — verify against source.</div>
+   ${row('Existing buildings',s.buildings_count)}${row('Nearest dwelling (ft)',(d.dwelling&&d.dwelling.nearest_dwelling_ft)||s.nearest_dwelling_ft)}</div>`;
+  if(d.image_url) h+=`<div class="muted" style="margin-top:10px">Proposed data center — AI render grounded in this parcel's constraints. Click to expand.</div><img class="render" src="${d.image_url}" onclick="expand('${d.image_url}')" style="cursor:zoom-in" alt="AI render of proposed data center">`;
+  if(d.dxf_url) h+=`<a class="dl" href="${d.dxf_url}" download>⬇ AutoCAD DXF (auto-downloaded)</a>`;
+  h+=`<div class="muted" style="margin-top:8px">Map: white=parcel · green=buildable · forest=canopy · teal=wetlands · blue=flood · brown=contours · red=buildings · dashed=nearest dwelling. <b onclick="toggleBig()" style="color:#1f6feb;cursor:pointer">⤢ expand map</b> · AI/demo — verify vs source.</div>
    <div class="back" onclick="P.scrollTop=0" style="margin-top:6px">click another parcel for a new report</div>`;
   P.innerHTML=h;
- }).catch(e=>{P.innerHTML='<div class="spin">Pipeline error (some live data sources may be slow). Try another parcel.<div class="back" onclick="P.scrollTop=0">ok</div></div>';});
+ }).catch(e=>{_done=true;clearInterval(_t);P.innerHTML='<div class="spin">Pipeline error (some live data sources may be slow). Try another parcel.<div class="back" onclick="P.scrollTop=0">ok</div></div>';});
 }
 step1();
 </script></body></html>

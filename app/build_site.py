@@ -175,7 +175,7 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
   </div>
 </header>
 
-<div id="intake" style="position:fixed;inset:0;background:rgba(16,36,62,.82);z-index:9999;display:flex;align-items:center;justify-content:center">
+<div id="intake" style="position:fixed;inset:0;background:rgba(16,36,62,.82);z-index:9999;display:none;align-items:center;justify-content:center">
  <div style="background:#fff;border-radius:14px;padding:26px 30px;max-width:440px;width:90%;box-shadow:0 12px 44px rgba(0,0,0,.45);font-family:Arial,sans-serif">
   <div style="font-size:22px;font-weight:bold;color:#10243e">🏗 Find your data-center site</div>
   <div style="color:#5a6b80;font-size:13px;margin:6px 0 16px">Tell us what you're building — we rank Virginia's 95 counties by buildability, public sentiment, water, energy &amp; fiber.</div>
