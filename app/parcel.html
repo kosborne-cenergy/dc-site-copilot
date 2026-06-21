@@ -92,6 +92,10 @@ function runPipeline(feat,layer){
   add(co.wetlands,{color:'#0aa',weight:1,fillColor:'#0aa',fillOpacity:.45});
   add(co.flood,{color:'#1f6feb',weight:1,fillColor:'#1f6feb',fillOpacity:.35});
   if(d.dwelling&&d.dwelling.line){const l=L.geoJSON(d.dwelling.line,{style:()=>({color:'#c62828',weight:3,dashArray:'5 5'})}).addTo(map);conLayers.push(l);}
+  // overlay the AI data-center render on the parcel/buildable footprint, on the map
+  if(d.image_url){try{var io=L.imageOverlay(d.image_url,layer.getBounds(),{opacity:.92,interactive:true});io.addTo(map);conLayers.push(io);}catch(e){}}
+  // auto-download the AutoCAD DXF as soon as it's generated
+  if(d.dxf_url){try{var a=document.createElement('a');a.href=d.dxf_url;a.download=d.dxf_url.split('/').pop();document.body.appendChild(a);a.click();a.remove();}catch(e){}}
   const s=d.summary||{};
   const row=(k,v)=>v!=null?`<div class="row"><b>${k}</b><span>${v}</span></div>`:'';
   let h=`<div class="step">Site analysis</div><h2>Parcel report</h2><div class="res">

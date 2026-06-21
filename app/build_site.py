@@ -110,6 +110,12 @@ def score_one(r):
 
 for r in records:
     score_one(r)
+_SENTSC = {"support": 100, "neutral": 55, "none": 50, "mixed": 40, "oppose": 20, "strongly_oppose": 5}
+for r in records:
+    _f = fiber.get(r["fips"], {})
+    _sc = _SENTSC.get(r.get("pub_sentiment"), 50)
+    r["ideal"] = round(0.4 * (r.get("score") or 0) + 0.2 * (r.get("water_score") or 0)
+                       + 0.2 * (_f.get("fiber_score") or 0) + 0.2 * _sc)
 records.sort(key=lambda r: r["score"], reverse=True)
 
 built = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -208,6 +214,7 @@ function runIntake(){
      <span class="mode" data-mode="score" onclick="setMode('score')">Buildability</span>
      <span class="mode" data-mode="sentiment" onclick="setMode('sentiment')">😡 Public sentiment</span>
      <span class="mode" data-mode="water" onclick="setMode('water')">💧 Water</span>
+     <span class="mode" data-mode="ideal" onclick="setMode('ideal')">🎯 Best Sites</span>
      <span class="mode" id="txbtn" onclick="toggleTx()">⚡ Transmission</span>
      <span class="mode" id="subbtn" onclick="toggleSub()">🔋 Substations</span>
      <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span>
@@ -236,6 +243,7 @@ function runIntake(){
  </div>
 </div>
 <footer id="foot"></footer>
+<a href="/app" style="position:fixed;bottom:18px;right:18px;z-index:2000;background:#2e7d32;color:#fff;padding:13px 22px;border-radius:30px;font-weight:bold;font-size:15px;text-decoration:none;box-shadow:0 4px 16px rgba(0,0,0,.38)">🎯 Target New Development →</a>
 
 <script>
 const GEO=__GEO__, REC=__REC__, CON=__CON__, FIB=__FIB__, BUILT="__BUILT__";
@@ -263,6 +271,7 @@ function showView(v){document.querySelectorAll('.view').forEach(e=>e.classList.r
 // ---- map ----
 map=L.map('map').setView([37.6,-78.9],7);
 L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{maxZoom:20,subdomains:['mt0','mt1','mt2','mt3'],attribution:'&copy; Google Satellite'}).addTo(map);
+function idealColor(v){return v>=70?'#FFA000':v>=55?'#FFC107':v>=40?'#FFE082':v>=25?'#FFF3C4':'#e8e8e8';}
 function colorFor(fips){
   if(mode==='scc'){const a=sccFor(fips);return a?(SCCTIER[a.tier]||'#e8e8e8'):'#e8e8e8';}
   const r=byFips[fips]; if(!r) return '#e8e8e8';
@@ -270,6 +279,7 @@ function colorFor(fips){
   if(mode==='trajectory') return TRAJ[r.trajectory]||'#cfd6df';
   if(mode==='sentiment') return SENT[r.pub_sentiment]||'#e8e8e8';
   if(mode==='water') return r.water_score!=null?waterColor(r.water_score):'#e8e8e8';
+  if(mode==='ideal') return r.ideal!=null?idealColor(r.ideal):'#e8e8e8';
   return scoreColor(r.score);}
 function style(f){const fips=f.properties._fips,has=byFips[fips];
   return {fillColor:colorFor(fips),weight:has?1:.5,color:has?'#fff':'#ccc',fillOpacity:has?.85:.25};}
@@ -397,6 +407,7 @@ function legend(){document.getElementById('legend').innerHTML = mode==='stance'
    : mode==='sentiment' ? ['strongly_oppose','oppose','mixed','support','neutral','none'].map(k=>`<span><i style="background:${SENT[k]}"></i>${SENTLBL[k]}</span>`).join('')
    : mode==='water' ? [['#084594','Abundant'],['#2171b5','High'],['#4292c6','Moderate'],['#9ecae1','Adequate'],['#deebf7','Limited']].map(k=>`<span><i style="background:${k[0]}"></i>${k[1]}</span>`).join('')
    : mode==='scc' ? [['#2e7d32','Building (servable)'],['#f9a825','Emerging'],['#c62828','Saturated'],['#e8e8e8','No SCC signal']].map(k=>`<span><i style="background:${k[0]}"></i>${k[1]}</span>`).join('')
+   : mode==='ideal' ? [['#FFA000','Prime'],['#FFC107','Strong'],['#FFE082','Workable'],['#FFF3C4','Marginal']].map(k=>`<span><i style="background:${k[0]}"></i>${k[1]}</span>`).join('')+'<span class="muted">blend: buildability+water+fiber+sentiment</span>'
    : '<span><i style="background:#2e7d32"></i>72+</span><span><i style="background:#1f6feb"></i>52-71</span><span><i style="background:#ef6c00"></i>32-51</span><span><i style="background:#c62828"></i>&lt;32</span>';}
 function trend(){document.getElementById('trend').innerHTML = CON.statewide_trend?`<h2>Statewide trend</h2><div class="card">${CON.statewide_trend}</div>`:'';}
 function contagionPanel(){const el=document.getElementById('contagion');let h='';const w=CON.siting_windows;
