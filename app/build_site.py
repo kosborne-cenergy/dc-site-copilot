@@ -228,7 +228,7 @@ function showView(v){document.querySelectorAll('.view').forEach(e=>e.classList.r
 
 // ---- map ----
 map=L.map('map').setView([37.6,-78.9],7);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:12,attribution:'&copy; OpenStreetMap, &copy; CARTO'}).addTo(map);
+L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{maxZoom:20,subdomains:['mt0','mt1','mt2','mt3'],attribution:'&copy; Google Satellite'}).addTo(map);
 function colorFor(fips){
   if(mode==='scc'){const a=sccFor(fips);return a?(SCCTIER[a.tier]||'#e8e8e8'):'#e8e8e8';}
   const r=byFips[fips]; if(!r) return '#e8e8e8';
