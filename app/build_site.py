@@ -441,23 +441,42 @@ out = (HTML
        .replace("__BUILT__", built).replace("__N__", str(n))
        .replace("__T1__", str(t1)).replace("__AVOID__", str(avoid)).replace("__CLOSING__", str(closing)))
 (DIST / "index.html").write_text(out, encoding="utf-8")
-# copy the transmission overlay (HIFLD) next to the html for lazy fetch
-tx = DATA / "va_transmission.geojson"
-if tx.exists():
-    shutil.copy(tx, DIST / "va_transmission.geojson")
-    print(f"copied transmission overlay ({tx.stat().st_size//1024} KB)")
-sub = DATA / "va_substations.geojson"
-if sub.exists():
-    shutil.copy(sub, DIST / "va_substations.geojson")
-    print(f"copied substations overlay ({sub.stat().st_size//1024} KB)")
-ewaste = DATA / "va_ewaste.geojson"
-if ewaste.exists():
-    shutil.copy(ewaste, DIST / "va_ewaste.geojson")
-    print(f"copied e-waste overlay ({ewaste.stat().st_size//1024} KB)")
-fib = DATA / "va_fiber.geojson"
-if fib.exists():
-    shutil.copy(fib, DIST / "va_fiber.geojson")
-    print(f"copied fiber overlay ({fib.stat().st_size//1024} KB)")
+# --- every overlay is CLIPPED to the Virginia boundary (state-only, no off-state bleed) ---
+from shapely.geometry import shape, mapping
+from shapely.ops import unary_union
+_VA_UNION = unary_union([shape(f["geometry"]) for f in geo["features"]]).buffer(0)
+
+
+def clip_overlay(src, dst, name):
+    try:
+        d = json.load(open(src, encoding="utf-8"))
+    except Exception:
+        return
+    out = []
+    for f in d.get("features", []):
+        g = f.get("geometry")
+        if not g:
+            continue
+        try:
+            geom = shape(g)
+            if geom.geom_type == "Point":
+                if _VA_UNION.contains(geom):
+                    out.append(f)          # keep only in-state points
+            else:
+                c = geom.intersection(_VA_UNION)   # clip lines/polys to VA
+                if not c.is_empty:
+                    f["geometry"] = mapping(c)
+                    out.append(f)
+        except Exception:
+            continue
+    json.dump({"type": "FeatureCollection", "features": out}, open(dst, "w"), separators=(",", ":"))
+    print(f"clipped {name}: {len(out)} features (VA-only)")
+
+
+for _fn in ("va_transmission.geojson", "va_substations.geojson", "va_ewaste.geojson", "va_fiber.geojson"):
+    _src = DATA / _fn
+    if _src.exists():
+        clip_overlay(_src, DIST / _fn, _fn)
 
 # stopped / paused projects: curated source JSON -> point geojson overlay
 stop_src = ROOT / "stopped_dc.json"
