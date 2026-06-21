@@ -26,3 +26,6 @@ __pycache__/
 venv/
 *.pyc
 .gstack/
+
+app/_*.json
+app/_*.txt
