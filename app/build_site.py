@@ -168,6 +168,36 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
   </div>
 </header>
 
+<div id="intake" style="position:fixed;inset:0;background:rgba(16,36,62,.82);z-index:9999;display:flex;align-items:center;justify-content:center">
+ <div style="background:#fff;border-radius:14px;padding:26px 30px;max-width:440px;width:90%;box-shadow:0 12px 44px rgba(0,0,0,.45);font-family:Arial,sans-serif">
+  <div style="font-size:22px;font-weight:bold;color:#10243e">🏗 Find your data-center site</div>
+  <div style="color:#5a6b80;font-size:13px;margin:6px 0 16px">Tell us what you're building — we rank Virginia's 95 counties by buildability, public sentiment, water, energy &amp; fiber.</div>
+  <label style="font-size:12px;color:#5a6b80;font-weight:bold">Capacity (MW)</label>
+  <input id="in_mw" type="number" value="100" style="width:100%;padding:9px;margin:4px 0 12px;border:1px solid #ccd4df;border-radius:6px;font-size:14px">
+  <label style="font-size:12px;color:#5a6b80;font-weight:bold">Building size (sq ft) — optional</label>
+  <input id="in_sqft" type="number" placeholder="e.g. 250000" style="width:100%;padding:9px;margin:4px 0 12px;border:1px solid #ccd4df;border-radius:6px;font-size:14px">
+  <label style="font-size:12px;color:#5a6b80;font-weight:bold">Budget — optional</label>
+  <input id="in_budget" type="text" placeholder="e.g. $500M" style="width:100%;padding:9px;margin:4px 0 18px;border:1px solid #ccd4df;border-radius:6px;font-size:14px">
+  <button onclick="runIntake()" style="width:100%;background:#1f6feb;color:#fff;border:none;padding:12px;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer">Find best counties →</button>
+  <div onclick="document.getElementById('intake').style.display='none'" style="text-align:center;margin-top:11px;color:#7a899c;font-size:12px;cursor:pointer">or just explore the map</div>
+ </div>
+</div>
+<script>
+function runIntake(){
+ var mw=parseFloat(document.getElementById('in_mw').value)||0;
+ var sqft=parseFloat(document.getElementById('in_sqft').value)||0;
+ var acres=Math.round(Math.max(mw?mw*2:0, sqft?(sqft/43560*3.5):0));
+ document.getElementById('intake').style.display='none';
+ try{showView('dash');}catch(e){}
+ try{
+  var top=(REC||[]).slice(0,5).map(function(r){return r.name;}).join(', ');
+  var b=document.getElementById('intakeBanner');
+  if(b){b.style.display='block';
+   b.innerHTML='🏗 For ~'+(mw||'?')+' MW'+(acres?(' (~'+acres+' acres needed)'):'')+' — top counties by buildability + infrastructure: <b>'+top+'</b>. Full ranking below; click any county on the map for ordinance + all 5 dimensions.';}
+ }catch(e){}
+}
+</script>
+
 <div id="view-map" class="view on">
  <div id="mapwrap">
   <div id="map"></div>
@@ -193,6 +223,7 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
 
 <div id="view-dash" class="view">
  <div id="dash">
+  <div id="intakeBanner" style="display:none;background:#eaf2ff;border:1px solid #b8d4ff;border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:#10243e"></div>
   <div class="tiles">
    <div class="tile"><div class="num" style="color:var(--pos)">__T1__</div><div class="lbl">Tier 1 — Build now</div></div>
    <div class="tile"><div class="num" style="color:var(--mor)">__AVOID__</div><div class="lbl">Avoid (moratorium/hard)</div></div>
