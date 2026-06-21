@@ -1,2 +1,8 @@
 flask>=3.0
 gunicorn>=21
+requests>=2.31
+shapely>=2.0
+pyproj>=3.6
+ezdxf>=1.1
+google-genai>=1.0
+pillow>=10.0

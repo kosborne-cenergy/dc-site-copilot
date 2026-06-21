@@ -165,6 +165,7 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
   <div class="tabs">
     <span class="tab on" data-v="map" onclick="showView('map')">🗺 Map</span>
     <span class="tab" data-v="dash" onclick="showView('dash')">📊 Developer Dashboard</span>
+    <a href="/app" class="tab" style="text-decoration:none;background:#2e7d32;border-color:#2e7d32">🏗 Parcel Finder →</a>
   </div>
 </header>
 
@@ -459,5 +460,8 @@ if stop_src.exists():
     json.dump({"type": "FeatureCollection", "features": feats},
               open(DIST / "va_stopped_dc.geojson", "w"), separators=(",", ":"))
     print(f"wrote stopped/paused overlay ({len(feats)} projects)")
+if (ROOT / "parcel.html").exists():
+    shutil.copy(ROOT / "parcel.html", DIST / "parcel.html")
+    print("copied parcel.html (interactive parcel finder)")
 print(f"wrote dist/index.html ({len(out)//1024} KB) | {n} counties | Tier1={t1} Avoid={avoid} closing={closing}")
 print("top 8:", ", ".join(f"{r['name']}({r['score']})" for r in records[:8]))

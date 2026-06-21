@@ -1,5 +1,6 @@
-# Cloud Run upload filter. NOTE: presence of this file makes gcloud IGNORE .gitignore,
-# so dist/ (gitignored) IS uploaded. Keep only what the running app needs.
+# Cloud Run upload filter (overrides .gitignore, so dist/ uploads).
+# Keep runtime needs: main.py, parcel_app.py, parcel/ modules, dist/ (incl parcel.html),
+# data/*.json + data/*.geojson (recommend.py reads records.json + scores). Drop build-only + heavy.
 .git/
 .gitignore
 __pycache__/
@@ -7,11 +8,13 @@ __pycache__/
 _scratch/
 _*.json
 _*.txt
-data/
-counties_all.json
-*.dxf
-*.png
+data/raw/
+data/yt/
+data/transcripts/
+data/*.png
+data/*.dxf
 *.gguf
+counties_all.json
 get_geo.py
 get_transmission.py
 get_fiber.py
