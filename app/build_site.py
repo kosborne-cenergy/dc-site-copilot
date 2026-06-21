@@ -181,7 +181,8 @@ HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name=
      <span class="mode" id="subbtn" onclick="toggleSub()">🔋 Substations</span>
      <span class="mode" id="fibtn" onclick="toggleFiber()">🔌 Fiber</span>
      <span class="mode" data-mode="scc" onclick="setMode('scc')">🛰 DC Grid (SCC)</span>
-     <span class="mode" id="stopbtn" onclick="toggleStopped()">⛔ Stopped/paused</span></div>
+     <span class="mode" id="stopbtn" onclick="toggleStopped()">⛔ Stopped/paused</span>
+     <span class="mode" id="ewastebtn" onclick="toggleEWaste()">♻️ E-Waste</span></div>
    <div class="legend" id="legend"></div>
    <div id="trend"></div>
    <div id="detail"><p class="hint">Click a county to see its data-center stance, trajectory, and the policy action behind it.</p></div>
@@ -270,6 +271,18 @@ function toggleSub(){const b=document.getElementById('subbtn');
     b.textContent=`🔋 Substations (${d.features.length})`;
   }).catch(e=>{b.textContent='🔋 needs localhost';b.classList.remove('on');});}
 
+// ewaste overlay
+let ewasteLayer=null;
+function toggleEWaste(){const b=document.getElementById('ewastebtn');
+  if(ewasteLayer){map.removeLayer(ewasteLayer);ewasteLayer=null;b.classList.remove('on');b.textContent='♻️ E-Waste';return;}
+  b.classList.add('on');b.textContent='♻️ loading…';
+  fetch('./va_ewaste.geojson').then(r=>r.json()).then(d=>{
+    ewasteLayer=L.geoJSON(d,{
+      pointToLayer: (f,ll)=>L.circleMarker(ll,{radius:5,fillColor:'#2e7d32',color:'#fff',weight:1,fillOpacity:.9}),
+      onEachFeature: (f,l)=>l.bindPopup(`<b>${f.properties.FacilityName}</b><br>Address: ${f.properties.StreetAddress}<br>City: ${f.properties.City}<br>Operator: ${f.properties.Operator}`)
+    }).addTo(map);
+    b.textContent=`♻️ E-Waste (${d.features.length})`;
+  }).catch(e=>{b.textContent='♻️ needs localhost';b.classList.remove('on');});}
 // stopped / paused data-center projects overlay (curated, source-cited)
 let stopLayer=null;
 const STOPC={rejected:'#c62828',paused:'#ef6c00',moratorium:'#7b1fa2',withdrawn:'#9e9e9e'};
@@ -394,6 +407,10 @@ sub = DATA / "va_substations.geojson"
 if sub.exists():
     shutil.copy(sub, DIST / "va_substations.geojson")
     print(f"copied substations overlay ({sub.stat().st_size//1024} KB)")
+ewaste = DATA / "va_ewaste.geojson"
+if ewaste.exists():
+    shutil.copy(ewaste, DIST / "va_ewaste.geojson")
+    print(f"copied e-waste overlay ({ewaste.stat().st_size//1024} KB)")
 fib = DATA / "va_fiber.geojson"
 if fib.exists():
     shutil.copy(fib, DIST / "va_fiber.geojson")
